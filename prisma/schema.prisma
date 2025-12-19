@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/* =========================
+   USERS (ALL ACCOUNTS)
+========================= */
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  firstName  String
+  middleName String?
+  lastName   String
+  contactNo  String?
+  address    String?
+
+  isActive  Boolean  @default(true)
+
+  /* ---------- RELATIONS ---------- */
+  children Child[]   // ✅ ADD THIS (opposite of Child.parent)
+
+  /* ---------- SOFT DELETE ---------- */
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+  deletedById Int?
+  deletedBy  User?   @relation("UserDeletedBy", fields: [deletedById], references: [id])
+  deletedUsers User[] @relation("UserDeletedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /* ---------- AUDIT ---------- */
+  createdImmunizations ImmunizationRecord[] @relation("createdBy")
+  updatedImmunizations ImmunizationRecord[] @relation("updatedBy")
+  deletedImmunizations ImmunizationRecord[] @relation("deletedBy")
+
+  permissions UserPermission[]
+}
+
+/* =========================
+   ROLES
+========================= */
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // PARENT, ADMIN, HEALTH
+  description String?
+
+  permissions RolePermission[]
+  users       User[]
+
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+}
+
+/* =========================
+   PERMISSIONS (MASTER LIST)
+========================= */
+model Permission {
+  id      Int    @id @default(autoincrement())
+  module  Module
+  action  Action
+
+  roles   RolePermission[]
+  users   UserPermission[]
+
+  @@unique([module, action])
+}
+
+/* =========================
+   ROLE → DEFAULT PERMISSIONS
+========================= */
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+/* =========================
+   USER PERMISSION OVERRIDES
+========================= */
+model UserPermission {
+  id           Int @id @default(autoincrement())
+  userId       Int
+  permissionId Int
+  allowed      Boolean @default(true)
+
+  user         User       @relation(fields: [userId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([userId, permissionId])
+}
+
+/* =========================
+   CHILD
+========================= */
+model Child {
+  id        Int @id @default(autoincrement())
+  parentId  Int
+
+  firstName  String
+  middleName String?
+  lastName   String
+  gender     Gender
+  birthDate  DateTime
+  birthPlace String
+
+  parent User @relation(fields: [parentId], references: [id])
+  immunizations ImmunizationRecord[]
+
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+/* =========================
+   VACCINES
+========================= */
+model Vaccine {
+  id       Int @id @default(autoincrement())
+  name     String
+  description String?
+  recommendedAge String
+
+  immunizations ImmunizationRecord[]
+
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+/* =========================
+   IMMUNIZATION RECORDS
+========================= */
+model ImmunizationRecord {
+  id        Int @id @default(autoincrement())
+  childId   Int
+  vaccineId Int
+
+  dose      String
+  dateGiven DateTime
+  administeredBy String // medical staff name
+
+  /* ---------- AUDIT ---------- */
+  createdById Int
+  updatedById Int?
+  deletedById Int?
+
+  createdBy User @relation("createdBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("updatedBy", fields: [updatedById], references: [id])
+  deletedBy User? @relation("deletedBy", fields: [deletedById], references: [id])
+
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+
+  child   Child   @relation(fields: [childId], references: [id])
+  vaccine Vaccine @relation(fields: [vaccineId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/* =========================
+   ANNOUNCEMENTS
+========================= */
+model Announcement {
+  id      Int @id @default(autoincrement())
+  title   String
+  message String
+  isActive Boolean @default(true)
+
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+/* =========================
+   ENUMS
+========================= */
+enum Module {
+  USERS
+  CHILDREN
+  VACCINES
+  IMMUNIZATIONS
+  ANNOUNCEMENTS
+}
+
+enum Action {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
