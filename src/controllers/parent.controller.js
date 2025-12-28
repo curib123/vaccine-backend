@@ -16,3 +16,22 @@ export const getAllParents = async (req,res) =>{
 
     }
 };
+
+export const getChildrenByParentId = async (req, res) => {
+  try {
+    const parentId = Number(req.params.parentId);
+
+    const children = await ParentService.getChildrenByParentId(parentId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Children retrieved successfully',
+      data: children,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
