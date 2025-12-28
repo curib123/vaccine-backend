@@ -2,16 +2,21 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 
+import authRoutes from './routes/auth.route.js';
+import roleRoutes from './routes/role.route.js';
+
 const app = express();
 
 app.use(cors({
   origin: true,
-  credentials: true, // ✅ allow cookies
+  credentials: true, 
 }));
 
 app.use(express.json());
-app.use(cookieParser()); // ✅ cookie parser
+app.use(cookieParser()); 
 
+app.use('/roles', roleRoutes);
+app.use('/auth', authRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Health Center API is running' });
