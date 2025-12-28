@@ -4,6 +4,7 @@ import express from 'express';
 
 import authRoutes from './routes/auth.route.js';
 import roleRoutes from './routes/role.route.js';
+import UserRoutes from './routes/user.route.js';
 
 const app = express();
 
@@ -15,8 +16,9 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser()); 
 
-app.use('/roles', roleRoutes);
-app.use('/auth', authRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/user', UserRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Health Center API is running' });
