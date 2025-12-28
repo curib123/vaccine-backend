@@ -40,3 +40,58 @@ export const getUserById = async (req, res) => {
     });
     }
 };
+
+export const updateUserById = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const user = await UserService.updateUserById(id, req.body);
+
+    res.status(200).json({
+      success: true,
+      message: 'User updated successfully',
+      data: user,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const toggleIsActive = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const status = await UserService.toggleIsActive(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'User status updated successfully',
+      status : status.isActive ? "Active" : "Deactivated",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const toggleIsDeleted = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const status = await UserService.toggleIsDeleted(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully',
+      status : status.isDeleted ? "Deleted" : "Restore",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
