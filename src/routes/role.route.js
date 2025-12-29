@@ -14,7 +14,7 @@ const router = express.Router();
 
 /* =========================
    ROLE ROUTES
-========================= */
+========================= */ 
 
 router.post('/create', createRole);                     // Create role
 router.get('/getAllRoles', getRoles);                        // Get all roles

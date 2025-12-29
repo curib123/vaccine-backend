@@ -29,16 +29,30 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await AuthService.login({ email, password });
-    res.status(200).json({
+
+    // AuthService now returns { token, user }
+    const { token, user } = await AuthService.login({ email, password });
+
+    // Set JWT in HTTP-only cookie
+    res.cookie('token', token, {
+      httpOnly: true,                           // 🔒 prevents XSS
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',                       // 🛡 CSRF protection
+      maxAge: 60 * 60 * 1000,                   // 1 hour
+    });
+
+    return res.status(200).json({
       success: true,
       message: 'Login successful',
-      data: user,
+      session_token : token  ,
+      data: user,        
+                           // ✅ return SAFE user data only
     });
+
   } catch (error) {
-    res.status(400).json({
+    return res.status(401).json({
       success: false,
-        message: error.message,
+      message: error.message,
     });
   }
 };
