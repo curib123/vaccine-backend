@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 
 import { prisma } from '../config/db.js';
+import { generateToken } from '../config/jwt.config.js';
 
 export const AuthService = {
 
@@ -32,32 +33,41 @@ export const AuthService = {
       throw new Error('Invalid email or password');
     }
 
-      
-    // get the role name
+    // 5️⃣ Get role
     const role = await prisma.role.findUnique({
       where: { id: user.roleId },
     });
-    
-    if (role != null && role.isDeleted) {
-      throw new Error('role not found');
+
+    if (!role || role.isDeleted) {
+      throw new Error('Role not found');
     }
 
-    // 5️⃣ Return safe user data (NO password)
-    return {
+    // 6️⃣ Generate JWT
+    const token = generateToken({
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      middleName: user.middleName,
-      lastName: user.lastName,
-      contactNo: user.contactNo,
-      address: user.address,
-      roleName : role ? role.name : null,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
+      role: role.name,
+    });
+
+    // 7️⃣ Return safe data + token
+    return {
+      token, // 👈 controller will store this in cookie
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        contactNo: user.contactNo,
+        address: user.address,
+        roleName: role.name,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+      },
     };
   },
 
-  // ✅ REGISTER (already correct)
+  // ✅ REGISTER (unchanged)
   async register({
     email,
     password,
@@ -70,7 +80,7 @@ export const AuthService = {
   }) {
 
     if (!email || !password || !firstName || !lastName) {
-      throw new Error("Missing required fields");
+      throw new Error('Missing required fields');
     }
 
     const exists = await prisma.user.findUnique({
@@ -78,7 +88,7 @@ export const AuthService = {
     });
 
     if (exists) {
-      throw new Error("Email already exists");
+      throw new Error('Email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
