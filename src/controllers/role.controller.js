@@ -188,3 +188,13 @@ export const restoreRole = async (req, res) => {
     });
   }
 };
+
+// controller
+export const getPermissions = async (req, res) => {
+  const permissions = await getAllPermissions();
+
+  res.json({
+    success: true,
+    data: permissions,
+  });
+};

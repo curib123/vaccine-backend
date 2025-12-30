@@ -1,3 +1,5 @@
+import { PermissionCode } from '@prisma/client';
+
 import { prisma } from '../config/db.js';
 
 /* =====================================================
@@ -8,30 +10,87 @@ import { prisma } from '../config/db.js';
 ===================================================== */
 
 /* =========================
+   ENSURE PERMISSIONS EXIST
+========================= */
+const ensurePermissionsSeeded = async () => {
+  const count = await prisma.permission.count();
+
+  if (count > 0) return;
+
+  console.log('🔐 Permission table empty. Seeding permissions...');
+
+  await prisma.permission.createMany({
+    data: Object.values(PermissionCode).map((code) => ({ code })),
+    skipDuplicates: true,
+  });
+};
+
+/* =========================
+   GET ALL PERMISSIONS
+========================= */
+export const getAllPermissions = async () => {
+  return prisma.permission.findMany({
+    orderBy: {
+      code: 'asc', // VIEW_DASHBOARD, MANAGE_USERS, etc.
+    },
+  });
+};
+
+
+/* =========================
    CREATE ROLE
+   - If permissionIds is EMPTY → assign ALL permissions
 ========================= */
 export const createRole = async ({
   name,
   description,
-  permissionIds = [], // array of permission IDs
+  permissionIds = [],
 }) => {
-  return prisma.role.create({
-    data: {
-      name,
-      description,
-      permissions: {
-        create: permissionIds.map((permissionId) => ({
+  // 🔥 Ensure permissions exist
+  await ensurePermissionsSeeded();
+
+  return prisma.$transaction(async (tx) => {
+    // 1️⃣ Create role
+    const role = await tx.role.create({
+      data: {
+        name,
+        description,
+      },
+    });
+
+    let finalPermissionIds = permissionIds;
+
+    // 2️⃣ If no permissions provided → assign ALL permissions
+    if (finalPermissionIds.length === 0) {
+      const allPermissions = await tx.permission.findMany({
+        select: { id: true },
+      });
+
+      finalPermissionIds = allPermissions.map((p) => p.id);
+    }
+
+    // 3️⃣ Attach permissions to role
+    if (finalPermissionIds.length > 0) {
+      await tx.rolePermission.createMany({
+        data: finalPermissionIds.map((permissionId) => ({
+          roleId: role.id,
           permissionId,
         })),
-      },
-    },
-    include: {
-      permissions: {
-        include: {
-          permission: true,
+        skipDuplicates: true,
+      });
+    }
+
+    // 4️⃣ Return role with permissions
+    return tx.role.findUnique({
+      where: { id: role.id },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
         },
       },
-    },
+    });
   });
 };
 
