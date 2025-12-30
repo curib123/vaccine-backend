@@ -2,22 +2,15 @@ import { prisma } from '../config/db.js';
 
 export const UserService = {
 
-// Toggle soft delete (isDeleted)
+/* =====================================================
+   TOGGLE SOFT DELETE
+===================================================== */
 async toggleIsDeleted(id, deletedById = null) {
-  if (!id) {
-    throw new Error('User ID is required');
-  }
+  if (!id) throw new Error('User ID is required');
 
-  // 1️⃣ Find user
-  const user = await prisma.user.findUnique({
-    where: { id },
-  });
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error('User not found');
 
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  // 2️⃣ Toggle isDeleted
   return prisma.user.update({
     where: { id },
     data: {
@@ -36,28 +29,18 @@ async toggleIsDeleted(id, deletedById = null) {
   });
 },
 
-
-// Toggle user isActive status
+/* =====================================================
+   TOGGLE ACTIVE
+===================================================== */
 async toggleIsActive(id) {
-  if (!id) {
-    throw new Error('User ID is required');
-  }
+  if (!id) throw new Error('User ID is required');
 
-  // 1️⃣ Find user
-  const user = await prisma.user.findUnique({
-    where: { id },
-  });
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error('User not found');
 
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  // 2️⃣ Toggle isActive
   return prisma.user.update({
     where: { id },
-    data: {
-      isActive: !user.isActive,
-    },
+    data: { isActive: !user.isActive },
     select: {
       id: true,
       email: true,
@@ -65,25 +48,17 @@ async toggleIsActive(id) {
       updatedAt: true,
     },
   });
-}
-,
+},
 
-// Update user by ID
+/* =====================================================
+   UPDATE USER
+===================================================== */
 async updateUserById(id, payload) {
-  if (!id) {
-    throw new Error('User ID is required');
-  }
+  if (!id) throw new Error('User ID is required');
 
-  // Check if user exists
-  const user = await prisma.user.findUnique({
-    where: { id },
-  });
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error('User not found');
 
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  // Update user
   return prisma.user.update({
     where: { id },
     data: {
@@ -109,18 +84,14 @@ async updateUserById(id, payload) {
   });
 },
 
-
-// Get User By ID (only if NOT deleted)
+/* =====================================================
+   GET USER BY ID
+===================================================== */
 async getUserById(id) {
-  if (!id) {
-    throw new Error('User ID is required');
-  }
+  if (!id) throw new Error('User ID is required');
 
   return prisma.user.findFirst({
-    where: {
-      id,
-      isDeleted: false, // ✅ exclude soft-deleted users
-    },
+    where: { id, isDeleted: false },
     select: {
       id: true,
       email: true,
@@ -137,20 +108,95 @@ async getUserById(id) {
   });
 },
 
-    
-   async getAllUsers({
-  page = 1,
-  limit = 10,
-  search,
-  roleId,
-  isActive,
-}) {
-  // 1️⃣ Normalize pagination
+/* =====================================================
+   ✅ GET USER PERMISSIONS BY USER ID
+===================================================== */
+async getUserPermissionsById(userId) {
+  if (!userId) throw new Error('User ID is required');
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, isDeleted: false },
+    select: {
+      id: true,
+      role: {
+        select: {
+          id: true,
+          name: true,
+          permissions: {
+            select: {
+              permission: {
+                select: {
+                  id: true,
+                  code: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) throw new Error('User not found');
+
+  return {
+    userId: user.id,
+    roleId: user.role?.id,
+    roleName: user.role?.name,
+    permissions: user.role?.permissions.map(p => p.permission) || [],
+  };
+},
+
+/* =====================================================
+   ✅ UPDATE USER PERMISSIONS (VIA ROLE)
+===================================================== */
+async updateUserPermissions(userId, permissionIds = []) {
+  if (!userId) throw new Error('User ID is required');
+  if (!Array.isArray(permissionIds)) {
+    throw new Error('permissionIds must be an array');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { roleId: true },
+  });
+
+  if (!user) throw new Error('User not found');
+
+  // Validate permissions
+  const valid = await prisma.permission.findMany({
+    where: { id: { in: permissionIds } },
+    select: { id: true },
+  });
+
+  if (valid.length !== permissionIds.length) {
+    throw new Error('One or more permissions are invalid');
+  }
+
+  // Replace role permissions
+  await prisma.$transaction([
+    prisma.rolePermission.deleteMany({
+      where: { roleId: user.roleId },
+    }),
+    prisma.rolePermission.createMany({
+      data: permissionIds.map(permissionId => ({
+        roleId: user.roleId,
+        permissionId,
+      })),
+    }),
+  ]);
+
+  return { success: true };
+},
+
+/* =====================================================
+   GET ALL USERS
+===================================================== */
+async getAllUsers({ page = 1, limit = 10, search, roleId, isActive }) {
   page = Number(page);
   limit = Number(limit);
   const skip = (page - 1) * limit;
 
-  // 2️⃣ Build WHERE filter dynamically
   const where = {
     isDeleted: false,
     ...(roleId && { roleId: Number(roleId) }),
@@ -164,7 +210,6 @@ async getUserById(id) {
     }),
   };
 
-  // 3️⃣ Query users + total count
   const [users, total] = await Promise.all([
     prisma.user.findMany({
       where,
@@ -182,27 +227,20 @@ async getUserById(id) {
         roleId: true,
         isActive: true,
         createdAt: true,
-
-        // ✅ JOIN ROLE TABLE
         role: {
-          select: {
-            name: true,
-          },
+          select: { name: true },
         },
       },
     }),
     prisma.user.count({ where }),
   ]);
 
-  // 4️⃣ Map role name (optional flattening)
-  const formattedUsers = users.map(u => ({
-    ...u,
-    roleName: u.role?.name || null,
-    role: undefined, // optional: hide nested object
-  }));
-
   return {
-    data: formattedUsers,
+    data: users.map(u => ({
+      ...u,
+      roleName: u.role?.name || null,
+      role: undefined,
+    })),
     pagination: {
       page,
       limit,
@@ -210,5 +248,5 @@ async getUserById(id) {
       totalPages: Math.ceil(total / limit),
     },
   };
-}
-}
+},
+};

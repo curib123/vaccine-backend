@@ -1,5 +1,8 @@
 import { UserService } from '../services/user.service.js';
 
+/* =========================
+   GET ALL USERS
+========================= */
 export const getAllUsers = async (req, res) => {
   try {
     const result = await UserService.getAllUsers(req.query);
@@ -18,29 +21,38 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+/* =========================
+   GET USER BY ID
+========================= */
 export const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await UserService.getUserById(Number(id));
+    const id = Number(req.params.id);
+
+    const user = await UserService.getUserById(id);
+
     if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: 'User not found',
-        });
-    }   
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
     res.status(200).json({
-        success: true,
-        message: 'User retrieved successfully',
-        data: user,
+      success: true,
+      message: 'User retrieved successfully',
+      data: user,
     });
   } catch (error) {
     res.status(400).json({
       success: false,
-        message: error.message,
+      message: error.message,
     });
-    }
+  }
 };
 
+/* =========================
+   UPDATE USER
+========================= */
 export const updateUserById = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -60,15 +72,19 @@ export const updateUserById = async (req, res) => {
   }
 };
 
+/* =========================
+   TOGGLE ACTIVE STATUS
+========================= */
 export const toggleIsActive = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const status = await UserService.toggleIsActive(id);
+
+    const result = await UserService.toggleIsActive(id);
 
     res.status(200).json({
       success: true,
       message: 'User status updated successfully',
-      status : status.isActive ? "Active" : "Deactivated",
+      status: result.isActive ? 'Active' : 'Deactivated',
     });
   } catch (error) {
     res.status(400).json({
@@ -78,15 +94,65 @@ export const toggleIsActive = async (req, res) => {
   }
 };
 
+/* =========================
+   TOGGLE SOFT DELETE
+========================= */
 export const toggleIsDeleted = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const status = await UserService.toggleIsDeleted(id);
+
+    const result = await UserService.toggleIsDeleted(id);
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully',
-      status : status.isDeleted ? "Deleted" : "Restore",
+      message: result.isDeleted
+        ? 'User deleted successfully'
+        : 'User restored successfully',
+      status: result.isDeleted ? 'Deleted' : 'Restored',
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/* =========================
+   ✅ GET USER PERMISSIONS
+========================= */
+export const getUserPermissions = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const permissions = await UserService.getUserPermissionsById(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'User permissions retrieved successfully',
+      data: permissions,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/* =========================
+   ✅ UPDATE USER PERMISSIONS
+========================= */
+export const updateUserPermissions = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { permissionIds } = req.body;
+
+    await UserService.updateUserPermissions(id, permissionIds);
+
+    res.status(200).json({
+      success: true,
+      message: 'User permissions updated successfully',
     });
   } catch (error) {
     res.status(400).json({
