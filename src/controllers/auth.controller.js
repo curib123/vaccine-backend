@@ -1,4 +1,5 @@
 import { AuthService } from '../services/auth.service.js';
+import { generateToken } from '../utils/jwt.util.js';
 
 export const registerUser = async (req, res) => {
   try {
@@ -25,28 +26,26 @@ export const registerUser = async (req, res) => {
   }
 };
 
-
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // AuthService now returns { token, user }
-    const { token, user } = await AuthService.login({ email, password });
+    // AuthService.login must return { user }
+    const { user } = await AuthService.login({ email, password });
 
-    // Set JWT in HTTP-only cookie
-    res.cookie('token', token, {
-      httpOnly: true,                           // 🔒 prevents XSS
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',                       // 🛡 CSRF protection
-      maxAge: 60 * 60 * 1000,                   // 1 hour
-    });
+    /* =========================
+       AUTH TOKEN (BEARER)
+    ========================= */
+    const token = generateToken(user.id);
 
+    /* =========================
+       RESPONSE
+    ========================= */
     return res.status(200).json({
       success: true,
       message: 'Login successful',
-      session_token : token  ,
-      data: user,        
-                           // ✅ return SAFE user data only
+      token,        // 👈 use in Authorization: Bearer
+      data: user,   // ✅ SAFE user data only
     });
 
   } catch (error) {
@@ -57,24 +56,18 @@ export const loginUser = async (req, res) => {
   }
 };
 
-export const logoutUser = async (req, res) => {
-  try {
-    // 🔥 Clear JWT cookie
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
 
-    res.status(200).json({
-      success: true,
-      message: 'Logged out successfully',
-    });
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+/* =========================
+   LOGOUT
+========================= */
+export const logoutUser = (req, res) => {
+  res.cookie('token', '', {
+    httpOnly: true,
+    expires: new Date(0),
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
+  });
+
+  return res.status(200).json({ success: true, message: 'Logout successful' });
 };

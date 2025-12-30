@@ -9,14 +9,20 @@ import UserRoutes from './routes/user.route.js';
 
 const app = express();
 
-app.use(cors({
-  origin: true,
-  credentials: true, 
-}));
+/* 🔥 CORS MUST COME FIRST */
 
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,
+  })
+);
+
+/* 🔥 Then parsers */
 app.use(express.json());
-app.use(cookieParser()); 
+app.use(cookieParser());
 
+/* 🔥 Routes */
 app.use('/api/roles', roleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/user', UserRoutes);

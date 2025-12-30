@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 
 import { prisma } from '../config/db.js';
-import { generateToken } from '../config/jwt.config.js';
 
 export const AuthService = {
 
@@ -42,16 +41,10 @@ async login({ email, password }) {
     throw new Error('Role not found');
   }
 
-  // 6️⃣ Generate JWT
-  const token = generateToken({
-    id: user.id,
-    email: user.email,
-    role: role.name,
-  });
+  
 
   // 7️⃣ Return safe data + token
   return {
-    token,
     user: {
       id: user.id,
       email: user.email,
