@@ -1,37 +1,110 @@
+import { PermissionCode } from '@prisma/client';
+
 import { prisma } from '../config/db.js';
 
 /* =====================================================
-   ROLE SERVICE
-   - Handles CRUD for roles
-   - Handles default role permissions
-   - Uses SOFT DELETE only
+   PERMISSION SEEDER
 ===================================================== */
+const ensurePermissionsSeeded = async () => {
+  const count = await prisma.permission.count();
+  if (count > 0) return;
+
+  console.log('🔐 Permission table empty. Seeding permissions...');
+
+  await prisma.permission.createMany({
+    data: Object.values(PermissionCode).map(code => ({ code })),
+    skipDuplicates: true,
+  });
+};
+
+/* =========================
+   GET ALL PERMISSIONS
+========================= */
+export const getAllPermissions = async () => {
+  return prisma.permission.findMany({
+    orderBy: { code: 'asc' },
+  });
+};
 
 /* =========================
    CREATE ROLE
+   - If permissionIds EMPTY → assign ALL
 ========================= */
-export const createRole = async ({
-  name,
-  description,
-  permissionIds = [], // array of permission IDs
-}) => {
-  return prisma.role.create({
-    data: {
-      name,
-      description,
-      permissions: {
-        create: permissionIds.map((permissionId) => ({
-          permissionId,
-        })),
+export const createRole = async ({ name, permissionIds = [] }) => {
+  if (!name || !name.trim()) {
+    throw new Error('Role name is required');
+  }
+
+  const normalizedName = name.trim().toUpperCase();
+
+  // Ensure permissions exist
+  await ensurePermissionsSeeded();
+
+  return prisma.$transaction(async (tx) => {
+    /* 🔒 DUPLICATE CHECK */
+    const existing = await tx.role.findFirst({
+      where: {
+        name: normalizedName,
+        isDeleted: false,
       },
-    },
-    include: {
-      permissions: {
-        include: {
-          permission: true,
+    });
+
+    if (existing) {
+      throw new Error(`Role "${normalizedName}" already exists`);
+    }
+
+    /* ✅ VALIDATE PERMISSIONS */
+    let finalPermissionIds = permissionIds;
+
+    if (finalPermissionIds.length > 0) {
+      const valid = await tx.permission.findMany({
+        where: { id: { in: finalPermissionIds } },
+        select: { id: true },
+      });
+
+      if (valid.length !== finalPermissionIds.length) {
+        throw new Error('One or more permissions are invalid');
+      }
+
+      finalPermissionIds = valid.map(p => p.id);
+    }
+
+    /* 🧠 ASSIGN ALL IF EMPTY */
+    if (finalPermissionIds.length === 0) {
+      const all = await tx.permission.findMany({
+        select: { id: true },
+      });
+
+      if (all.length === 0) {
+        throw new Error('No permissions found in the system');
+      }
+
+      finalPermissionIds = all.map(p => p.id);
+    }
+
+    /* ➕ CREATE ROLE */
+    const role = await tx.role.create({
+      data: { name: normalizedName },
+    });
+
+    /* 🔗 ATTACH PERMISSIONS */
+    await tx.rolePermission.createMany({
+      data: finalPermissionIds.map(permissionId => ({
+        roleId: role.id,
+        permissionId,
+      })),
+      skipDuplicates: true,
+    });
+
+    /* 📦 RETURN ROLE */
+    return tx.role.findUnique({
+      where: { id: role.id },
+      include: {
+        permissions: {
+          include: { permission: true },
         },
       },
-    },
+    });
   });
 };
 
@@ -40,19 +113,13 @@ export const createRole = async ({
 ========================= */
 export const getRoles = async () => {
   return prisma.role.findMany({
-    where: {
-      isDeleted: false,
-    },
+    where: { isDeleted: false },
     include: {
       permissions: {
-        include: {
-          permission: true,
-        },
+        include: { permission: true },
       },
     },
-    orderBy: {
-      name: 'asc',
-    },
+    orderBy: { name: 'asc' },
   });
 };
 
@@ -67,45 +134,65 @@ export const getRoleById = async (roleId) => {
     },
     include: {
       permissions: {
-        include: {
-          permission: true,
-        },
+        include: { permission: true },
       },
     },
   });
 };
 
 /* =========================
-   UPDATE ROLE INFO
+   UPDATE ROLE NAME
 ========================= */
-export const updateRole = async (roleId, data) => {
-  const { name, description } = data;
+export const updateRole = async (roleId, { name }) => {
+  if (!name || !name.trim()) {
+    throw new Error('Role name is required');
+  }
+
+  const normalizedName = name.trim().toUpperCase();
+
+  /* 🔒 DUPLICATE CHECK */
+  const existing = await prisma.role.findFirst({
+    where: {
+      name: normalizedName,
+      id: { not: Number(roleId) },
+      isDeleted: false,
+    },
+  });
+
+  if (existing) {
+    throw new Error(`Role "${normalizedName}" already exists`);
+  }
 
   return prisma.role.update({
-    where: {
-      id: Number(roleId),
-    },
-    data: {
-      name,
-      description,
-    },
+    where: { id: Number(roleId) },
+    data: { name: normalizedName },
   });
 };
 
 /* =========================
    UPDATE ROLE PERMISSIONS
-   (REPLACE DEFAULT PERMISSIONS)
 ========================= */
 export const updateRolePermissions = async (roleId, permissionIds = []) => {
+  if (!Array.isArray(permissionIds)) {
+    throw new Error('Invalid permissions payload');
+  }
+
+  /* ✅ VALIDATE PERMISSIONS */
+  const valid = await prisma.permission.findMany({
+    where: { id: { in: permissionIds } },
+    select: { id: true },
+  });
+
+  if (valid.length !== permissionIds.length) {
+    throw new Error('One or more permissions are invalid');
+  }
+
   return prisma.$transaction([
-    // Remove old permissions
     prisma.rolePermission.deleteMany({
       where: { roleId: Number(roleId) },
     }),
-
-    // Add new permissions
     prisma.rolePermission.createMany({
-      data: permissionIds.map((permissionId) => ({
+      data: permissionIds.map(permissionId => ({
         roleId: Number(roleId),
         permissionId,
       })),
@@ -118,9 +205,7 @@ export const updateRolePermissions = async (roleId, permissionIds = []) => {
 ========================= */
 export const deleteRole = async (roleId) => {
   return prisma.role.update({
-    where: {
-      id: Number(roleId),
-    },
+    where: { id: Number(roleId) },
     data: {
       isDeleted: true,
       deletedAt: new Date(),
@@ -133,9 +218,7 @@ export const deleteRole = async (roleId) => {
 ========================= */
 export const restoreRole = async (roleId) => {
   return prisma.role.update({
-    where: {
-      id: Number(roleId),
-    },
+    where: { id: Number(roleId) },
     data: {
       isDeleted: false,
       deletedAt: null,
