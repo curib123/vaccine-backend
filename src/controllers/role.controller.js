@@ -188,13 +188,21 @@ export const restoreRole = async (req, res) => {
     });
   }
 };
+export const getAllPermissions = async (req, res) => {
+  try {
+    const permissions = await RoleService.getAllPermissions();
 
-// controller
-export const getPermissions = async (req, res) => {
-  const permissions = await getAllPermissions();
+    return res.status(200).json({
+      success: true,
+      data: permissions,
+    });
+  } catch (error) {
+    console.error('[GET PERMISSIONS ERROR]', error);
 
-  res.json({
-    success: true,
-    data: permissions,
-  });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch permissions',
+    });
+  }
 };
+

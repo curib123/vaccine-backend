@@ -3,7 +3,7 @@ import express from 'express';
 import {
   createRole,
   deleteRole,
-  getPermissions,
+  getAllPermissions,
   getRoleById,
   getRoles,
   restoreRole,
@@ -23,8 +23,8 @@ router.get('/getAllRoles',verifyToken, getRoles);                        // Get 
 router.get('/getRole/:id',verifyToken, getRoleById);                  // Get role by ID
 router.put('/updateRole/:id',verifyToken, updateRole);                   // Update role info
 router.put('/updatePermission/:id/permissions',verifyToken, updateRolePermissions); // Update permissions
-router.delete('/removeRole/:id',verifyToken, deleteRole);                // Soft delete role
+router.patch('/removeRole/:id/delete-role',verifyToken, deleteRole);                // Soft delete role
 router.patch('/restoreRole/:id/restore',verifyToken, restoreRole);        // Restore role
-router.get('/getPermissions', verifyToken,getPermissions);  // get permissions
+router.get('/getAllPermissions', verifyToken,getAllPermissions);  // get permissions
 
 export default router;
