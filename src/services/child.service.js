@@ -1,11 +1,12 @@
 import { prisma } from '../config/db.js';
+import { RecordsService } from './records.service.js';
 
 export const ChildService = {
 
   /* =====================================================
-     CREATE CHILD
+     CREATE CHILD → THEN GENERATE IMMUNIZATION RECORDS
   ===================================================== */
-  async createChild(payload) {
+  async createChild(payload, createdById) {
     const {
       parentId,
       firstName,
@@ -16,11 +17,24 @@ export const ChildService = {
       birthPlace,
     } = payload;
 
-    if (!parentId || !firstName || !lastName || !gender || !birthDate || !birthPlace) {
+    /* ================= VALIDATION ================= */
+    if (
+      !parentId ||
+      !firstName ||
+      !lastName ||
+      !gender ||
+      !birthDate ||
+      !birthPlace
+    ) {
       throw new Error('Missing required child fields');
     }
 
-    return prisma.child.create({
+    if (!createdById) {
+      throw new Error('createdById (user from token) is required');
+    }
+
+    /* ================= CREATE CHILD (COMMIT FIRST) ================= */
+    const child = await prisma.child.create({
       data: {
         parentId: Number(parentId),
         firstName,
@@ -41,6 +55,20 @@ export const ChildService = {
         createdAt: true,
       },
     });
+
+    /* ================= GENERATE IMMUNIZATION RECORDS ================= */
+    try {
+      await RecordsService.generateForChild(child.id, createdById);
+    } catch (err) {
+      // ⚠️ Do NOT fail child creation if generation fails
+      console.error(
+        '⚠️ IMMUNIZATION GENERATION FAILED FOR CHILD:',
+        child.id,
+        err.message
+      );
+    }
+
+    return child;
   },
 
   /* =====================================================
@@ -134,23 +162,16 @@ export const ChildService = {
   },
 
   /* =====================================================
-     GET ALL CHILDREN (SEARCH + PAGINATION)
+     GET ALL CHILDREN
   ===================================================== */
-  async getAllChildren({
-    page = 1,
-    limit = 10,
-    search,
-    parentId,
-  }) {
+  async getAllChildren({ page = 1, limit = 10, search, parentId }) {
     page = Number(page);
     limit = Number(limit);
     const skip = (page - 1) * limit;
 
     const where = { isDeleted: false };
 
-    if (parentId) {
-      where.parentId = Number(parentId);
-    }
+    if (parentId) where.parentId = Number(parentId);
 
     if (search) {
       where.OR = [
@@ -197,5 +218,4 @@ export const ChildService = {
       },
     };
   },
-
 };
