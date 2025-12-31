@@ -19,7 +19,7 @@ const router = express.Router();
 router.get('/getAllUsers', verifyToken, getAllUsers);              // Get all users
 router.get('/getUserById/:id', verifyToken, getUserById);          // Get user by ID
 router.put('/updateUserById/:id', verifyToken, updateUserById);    // Update user
-router.patch('/toggleIsActive/:id/toggle-status', verifyToken, toggleIsActive); // Toggle active
+router.patch('/toggleIsActive/:id/toogle-status', verifyToken, toggleIsActive); // Toggle active
 router.patch('/toggleIsDeleted/:id/removing', verifyToken, toggleIsDeleted);     // Soft delete / restore
 
 /* =========================

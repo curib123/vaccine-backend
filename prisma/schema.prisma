@@ -8,7 +8,7 @@ datasource db {
 }
 
 /* =========================
-   USERS (ALL ACCOUNTS)
+   USERS
 ========================= */
 model User {
   id        Int      @id @default(autoincrement())
@@ -29,20 +29,18 @@ model User {
   /* ---------- RELATIONS ---------- */
   children Child[]
 
+  permissions UserPermission[]
+
+  createdImmunizations ImmunizationRecord[] @relation("createdBy")
+  updatedImmunizations ImmunizationRecord[] @relation("updatedBy")
+  deletedImmunizations ImmunizationRecord[] @relation("deletedBy")
+
   /* ---------- SOFT DELETE ---------- */
   isDeleted   Boolean  @default(false)
   deletedAt   DateTime?
   deletedById Int?
   deletedBy   User?    @relation("UserDeletedBy", fields: [deletedById], references: [id])
   deletedUsers User[]  @relation("UserDeletedBy")
-
-  /* ---------- AUDIT ---------- */
-  createdImmunizations ImmunizationRecord[] @relation("createdBy")
-  updatedImmunizations ImmunizationRecord[] @relation("updatedBy")
-  deletedImmunizations ImmunizationRecord[] @relation("deletedBy")
-
-  /* ---------- PERMISSIONS ---------- */
-  permissions UserPermission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -53,7 +51,7 @@ model User {
 ========================= */
 model Role {
   id          Int      @id @default(autoincrement())
-  name        String   @unique // ADMIN, HEALTH, PARENT
+  name        String   @unique
   description String?
 
   permissions RolePermission[]
@@ -64,20 +62,16 @@ model Role {
 }
 
 /* =========================
-   PERMISSIONS (FEATURE-BASED)
-   1 PERMISSION = 1 FEATURE
+   PERMISSIONS
 ========================= */
 model Permission {
-  id   Int             @id @default(autoincrement())
-  code PermissionCode  @unique
+  id   Int            @id @default(autoincrement())
+  code PermissionCode @unique
 
   roles RolePermission[]
   users UserPermission[]
 }
 
-/* =========================
-   ROLE → PERMISSIONS
-========================= */
 model RolePermission {
   id           Int @id @default(autoincrement())
   roleId       Int
@@ -89,9 +83,6 @@ model RolePermission {
   @@unique([roleId, permissionId])
 }
 
-/* =========================
-   USER → PERMISSION OVERRIDES
-========================= */
 model UserPermission {
   id           Int @id @default(autoincrement())
   userId       Int
@@ -118,8 +109,11 @@ model Child {
   birthDate  DateTime
   birthPlace String
 
-  parent         User @relation(fields: [parentId], references: [id])
-  immunizations  ImmunizationRecord[]
+  parent User @relation(fields: [parentId], references: [id])
+
+  immunizations ImmunizationRecord[]
+  visits        ImmunizationVisit[]
+  summary       ImmunizationSummary?
 
   isDeleted Boolean  @default(false)
   deletedAt DateTime?
@@ -137,7 +131,12 @@ model Vaccine {
   description    String?
   recommendedAge String
 
+  totalDoses          Int?
+  requiresBooster     Boolean @default(false)
+  boosterAfterMonths  Int?
+
   immunizations ImmunizationRecord[]
+  schedules     ImmunizationSchedule[]
 
   isDeleted Boolean  @default(false)
   deletedAt DateTime?
@@ -146,16 +145,66 @@ model Vaccine {
 }
 
 /* =========================
-   IMMUNIZATION RECORDS
+   IMMUNIZATION SCHEDULE
+   (AUTO-GENERATOR SOURCE)
+========================= */
+model ImmunizationSchedule {
+  id        Int @id @default(autoincrement())
+
+  vaccineId Int
+  doseLabel String
+  doseNumber Int
+  recommendedAgeInMonths Int
+  intervalDays Int?
+
+  vaccine Vaccine @relation(fields: [vaccineId], references: [id])
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+/* =========================
+   IMMUNIZATION VISIT
+========================= */
+model ImmunizationVisit {
+  id        Int @id @default(autoincrement())
+  childId   Int
+  visitDate DateTime
+  location  String?
+  nurseName String?
+
+  records ImmunizationRecord[]
+
+  child Child @relation(fields: [childId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+/* =========================
+   IMMUNIZATION RECORD
 ========================= */
 model ImmunizationRecord {
   id        Int @id @default(autoincrement())
   childId   Int
   vaccineId Int
+  visitId   Int?
 
-  dose            String
-  dateGiven       DateTime
-  administeredBy  String
+  dose        String
+  doseNumber Int?
+  dateGiven  DateTime?
+  nextDueDate DateTime?
+
+  status ImmunizationStatus @default(PENDING)
+
+  administeredBy String?
+  administeredAt String?
+  batchNumber String?
+  manufacturer String?
+  remarks String?
+
+  isMissed Boolean @default(false)
+  isLate   Boolean @default(false)
 
   /* ---------- AUDIT ---------- */
   createdById Int
@@ -166,14 +215,32 @@ model ImmunizationRecord {
   updatedBy User? @relation("updatedBy", fields: [updatedById], references: [id])
   deletedBy User? @relation("deletedBy", fields: [deletedById], references: [id])
 
+  child   Child   @relation(fields: [childId], references: [id])
+  vaccine Vaccine @relation(fields: [vaccineId], references: [id])
+  visit   ImmunizationVisit? @relation(fields: [visitId], references: [id])
+
   isDeleted Boolean  @default(false)
   deletedAt DateTime?
 
-  child   Child   @relation(fields: [childId], references: [id])
-  vaccine Vaccine @relation(fields: [vaccineId], references: [id])
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/* =========================
+   IMMUNIZATION SUMMARY
+========================= */
+model ImmunizationSummary {
+  id        Int @id @default(autoincrement())
+  childId   Int @unique
+
+  totalRequired  Int
+  totalCompleted Int
+  totalMissed    Int
+  completionRate Float
+
+  updatedAt DateTime @updatedAt
+
+  child Child @relation(fields: [childId], references: [id])
 }
 
 /* =========================
@@ -195,9 +262,18 @@ model Announcement {
    ENUMS
 ========================= */
 
-/* 🔐 FEATURE-BASED PERMISSIONS
-   (DERIVED FROM SIDEBAR LINKS)
-*/
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ImmunizationStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
 enum PermissionCode {
   VIEW_DASHBOARD
 
@@ -211,9 +287,4 @@ enum PermissionCode {
   MANAGE_ROLES
 
   MANAGE_ADMINISTRATION
-}
-
-enum Gender {
-  MALE
-  FEMALE
 }
