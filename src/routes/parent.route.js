@@ -8,7 +8,22 @@ import { verifyToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.get('/getAllParents',verifyToken,getAllParents);
-router.get('/getChildrenByParentId/:parentId',verifyToken,getChildrenByParentId);
+/* =========================
+   PARENTS
+========================= */
+router.get(
+  '/getAllParents',
+  verifyToken,
+  getAllParents
+);
+
+/* =========================
+   CHILDREN
+========================= */
+router.get(
+  '/:parentId/children',
+  verifyToken,
+  getChildrenByParentId
+);
 
 export default router;

@@ -7,19 +7,22 @@ export const getAllUsers = async (req, res) => {
   try {
     const result = await UserService.getAllUsers(req.query);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Users retrieved successfully',
       data: result.data,
       pagination: result.pagination,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error('❌ GET ALL USERS ERROR:', error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || 'Failed to retrieve users',
     });
   }
 };
+
 
 /* =========================
    GET USER BY ID
