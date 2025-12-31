@@ -2,6 +2,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 
+import AnnouncementRoutes from './routes/announcement.route.js'; // ✅ NEW
 import authRoutes from './routes/auth.route.js';
 import ChildRoutes from './routes/child.route.js';
 import dashboardRoutes from './routes/dashboard.route.js';
@@ -26,15 +27,15 @@ app.use(express.json());
 app.use(cookieParser());
 
 /* 🔥 Routes */
-app.use('/api/roles', roleRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/roles', roleRoutes);
 app.use('/api/user', UserRoutes);
 app.use('/api/parent', ParentRoutes);
 app.use('/api/vaccine', VaccineRoutes);
 app.use('/api/child', ChildRoutes);
 app.use('/api/records', recordsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
+app.use('/api/announcements', AnnouncementRoutes); // ✅ NEW
 
 /* 🔥 Health check */
 app.get('/', (req, res) => {

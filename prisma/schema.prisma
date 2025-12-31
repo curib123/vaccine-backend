@@ -276,6 +276,8 @@ enum ImmunizationStatus {
 
 enum PermissionCode {
   VIEW_DASHBOARD
+  VIEW_ANNOUNCEMENT
+
 
   MANAGE_CHILDREN
   MANAGE_PARENTS
