@@ -1,14 +1,11 @@
 import { VaccineService } from '../services/vaccine.service.js';
 
 /* =====================================================
-   CREATE VACCINE
+   CREATE VACCINE (+ OPTIONAL SCHEDULES)
 ===================================================== */
 export const createVaccine = async (req, res) => {
   try {
-    const vaccine = await VaccineService.createVaccine(
-      req.body,
-      req.user?.id || null
-    );
+    const vaccine = await VaccineService.createVaccine(req.body);
 
     return res.status(201).json({
       success: true,
@@ -26,7 +23,7 @@ export const createVaccine = async (req, res) => {
 };
 
 /* =====================================================
-   UPDATE VACCINE
+   UPDATE VACCINE (+ OPTIONAL SCHEDULE RESET)
 ===================================================== */
 export const updateVaccineById = async (req, res) => {
   try {
@@ -53,7 +50,7 @@ export const updateVaccineById = async (req, res) => {
 };
 
 /* =====================================================
-   TOGGLE SOFT DELETE
+   TOGGLE SOFT DELETE / RESTORE
 ===================================================== */
 export const toggleVaccineIsDeleted = async (req, res) => {
   try {
@@ -73,13 +70,13 @@ export const toggleVaccineIsDeleted = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message || 'Failed to delete vaccine',
+      message: error.message || 'Failed to update vaccine status',
     });
   }
 };
 
 /* =====================================================
-   GET VACCINE BY ID
+   GET VACCINE BY ID (WITH SCHEDULES)
 ===================================================== */
 export const getVaccineById = async (req, res) => {
   try {

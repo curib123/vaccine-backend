@@ -3,31 +3,59 @@ import { prisma } from '../config/db.js';
 export const VaccineService = {
 
   /* =====================================================
-     CREATE VACCINE
+     CREATE VACCINE (+ OPTIONAL SCHEDULES)
   ===================================================== */
-  async createVaccine(payload, createdById = null) {
+  async createVaccine(payload) {
     if (!payload?.name) {
       throw new Error('Vaccine name is required');
     }
 
+    const {
+      name,
+      description,
+      recommendedAge,
+      totalDoses,
+      requiresBooster,
+      boosterAfterMonths,
+      schedules = [], // optional
+    } = payload;
+
     return prisma.vaccine.create({
       data: {
-        name: payload.name,
-        description: payload.description || null,
-        recommendedAge: payload.recommendedAge,
+        name,
+        description: description || null,
+        recommendedAge,
+        totalDoses: totalDoses ?? null,
+        requiresBooster: requiresBooster ?? false,
+        boosterAfterMonths: boosterAfterMonths ?? null,
+
+        schedules: schedules.length
+          ? {
+              create: schedules.map(s => ({
+                doseLabel: s.doseLabel,
+                doseNumber: s.doseNumber,
+                recommendedAgeInMonths: s.recommendedAgeInMonths,
+                intervalDays: s.intervalDays ?? null,
+              })),
+            }
+          : undefined,
       },
       select: {
         id: true,
         name: true,
         description: true,
         recommendedAge: true,
+        totalDoses: true,
+        requiresBooster: true,
+        boosterAfterMonths: true,
         createdAt: true,
+        schedules: true,
       },
     });
   },
 
   /* =====================================================
-     UPDATE VACCINE
+     UPDATE VACCINE (+ OPTIONAL SCHEDULE RESET)
   ===================================================== */
   async updateVaccineById(id, payload) {
     if (!id) throw new Error('Vaccine ID is required');
@@ -38,20 +66,58 @@ export const VaccineService = {
 
     if (!vaccine) throw new Error('Vaccine not found');
 
-    return prisma.vaccine.update({
-      where: { id },
-      data: {
-        name: payload.name,
-        description: payload.description,
-        recommendedAge: payload.recommendedAge,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        recommendedAge: true,
-        createdAt: true,
-      },
+    const {
+      name,
+      description,
+      recommendedAge,
+      totalDoses,
+      requiresBooster,
+      boosterAfterMonths,
+      schedules,
+    } = payload;
+
+    return prisma.$transaction(async tx => {
+      // Optional: reset schedules if provided
+      if (Array.isArray(schedules)) {
+        await tx.immunizationSchedule.deleteMany({
+          where: { vaccineId: id },
+        });
+
+        if (schedules.length) {
+          await tx.immunizationSchedule.createMany({
+            data: schedules.map(s => ({
+              vaccineId: id,
+              doseLabel: s.doseLabel,
+              doseNumber: s.doseNumber,
+              recommendedAgeInMonths: s.recommendedAgeInMonths,
+              intervalDays: s.intervalDays ?? null,
+            })),
+          });
+        }
+      }
+
+      return tx.vaccine.update({
+        where: { id },
+        data: {
+          name: name ?? undefined,
+          description: description ?? undefined,
+          recommendedAge: recommendedAge ?? undefined,
+          totalDoses: totalDoses ?? undefined,
+          requiresBooster: requiresBooster ?? undefined,
+          boosterAfterMonths: boosterAfterMonths ?? undefined,
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          recommendedAge: true,
+          totalDoses: true,
+          requiresBooster: true,
+          boosterAfterMonths: true,
+          createdAt: true,
+          schedules: true,
+        },
+      });
     });
   },
 
@@ -61,10 +127,7 @@ export const VaccineService = {
   async toggleIsDeleted(id) {
     if (!id) throw new Error('Vaccine ID is required');
 
-    const vaccine = await prisma.vaccine.findUnique({
-      where: { id },
-    });
-
+    const vaccine = await prisma.vaccine.findUnique({ where: { id } });
     if (!vaccine) throw new Error('Vaccine not found');
 
     return prisma.vaccine.update({
@@ -83,7 +146,7 @@ export const VaccineService = {
   },
 
   /* =====================================================
-     GET VACCINE BY ID
+     GET VACCINE BY ID (WITH SCHEDULES)
   ===================================================== */
   async getVaccineById(id) {
     if (!id) throw new Error('Vaccine ID is required');
@@ -95,7 +158,14 @@ export const VaccineService = {
         name: true,
         description: true,
         recommendedAge: true,
+        totalDoses: true,
+        requiresBooster: true,
+        boosterAfterMonths: true,
         createdAt: true,
+        schedules: {
+          where: { isActive: true },
+          orderBy: { doseNumber: 'asc' },
+        },
       },
     });
   },
@@ -114,18 +184,17 @@ export const VaccineService = {
     limit = Number(limit);
     const skip = (page - 1) * limit;
 
-    /* ================= SAFE SORT ================= */
     const allowedSortFields = [
       'createdAt',
       'name',
       'recommendedAge',
+      'totalDoses',
     ];
 
     const orderBy = allowedSortFields.includes(sortBy)
       ? { [sortBy]: sortOrder === 'asc' ? 'asc' : 'desc' }
       : { createdAt: 'desc' };
 
-    /* ================= WHERE ================= */
     const where = { isDeleted: false };
 
     if (search) {
@@ -136,7 +205,6 @@ export const VaccineService = {
       ];
     }
 
-    /* ================= QUERY ================= */
     const [vaccines, total] = await Promise.all([
       prisma.vaccine.findMany({
         where,
@@ -148,7 +216,14 @@ export const VaccineService = {
           name: true,
           description: true,
           recommendedAge: true,
+          totalDoses: true,
+          requiresBooster: true,
+          boosterAfterMonths: true,
           createdAt: true,
+          schedules: {
+            where: { isActive: true },
+            orderBy: { doseNumber: 'asc' },
+          },
         },
       }),
       prisma.vaccine.count({ where }),
