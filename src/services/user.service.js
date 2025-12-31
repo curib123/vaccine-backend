@@ -187,95 +187,101 @@ export const UserService = {
     return { success: true };
   },
 
-  /* =====================================================
-     GET ALL USERS (SEARCH + FILTER + SORT)
-  ===================================================== */
-  async getAllUsers({
-    page = 1,
-    limit = 10,
-    search,
-    roleId,
-    isActive,
-    sortBy = 'createdAt',
-    sortOrder = 'desc',
-  }) {
-    page = Number(page);
-    limit = Number(limit);
-    const skip = (page - 1) * limit;
+/* =====================================================
+   GET ALL USERS (SEARCH + FILTER + SORT)
+===================================================== */
+async getAllUsers({
+  page = 1,
+  limit = 10,
+  search,
+  roleId,
+  isActive,
+  sortBy = 'createdAt',
+  sortOrder = 'desc',
+}) {
+  page = Number(page);
+  limit = Number(limit);
+  const skip = (page - 1) * limit;
 
-    /* ================= SAFE SORT ================= */
-    const allowedSortFields = [
-      'createdAt',
-      'email',
-      'firstName',
-      'lastName',
+  /* ================= SAFE SORT ================= */
+  const allowedSortFields = [
+    'createdAt',
+    'email',
+    'firstName',
+    'lastName',
+  ];
+
+  const orderBy = allowedSortFields.includes(sortBy)
+    ? { [sortBy]: sortOrder === 'asc' ? 'asc' : 'desc' }
+    : { createdAt: 'desc' };
+
+  /* ================= WHERE ================= */
+  const where = {
+    isDeleted: false,
+  };
+
+  if (roleId) {
+    where.roleId = Number(roleId);
+  }
+
+  if (isActive !== undefined && isActive !== '') {
+    where.isActive = isActive === 'true';
+  }
+
+  if (search) {
+    where.OR = [
+      { email: { contains: search } },
+      { firstName: { contains: search } },
+      { lastName: { contains: search } },
     ];
+  }
 
-    const orderBy = allowedSortFields.includes(sortBy)
-      ? { [sortBy]: sortOrder === 'asc' ? 'asc' : 'desc' }
-      : { createdAt: 'desc' };
-
-    /* ================= WHERE ================= */
-    const where = { isDeleted: false };
-
-    if (roleId) where.roleId = Number(roleId);
-
-    if (isActive !== undefined && isActive !== '') {
-      where.isActive = isActive === 'true';
-    }
-
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          middleName: true,
-          lastName: true,
-          contactNo: true,
-          address: true,
-          roleId: true,
-          isActive: true,
-          createdAt: true,
-          role: { select: { name: true } },
-        },
-      }),
-      prisma.user.count({ where }),
-    ]);
-
-    return {
-      data: users.map(u => ({
-        id: u.id,
-        email: u.email,
-        firstName: u.firstName,
-        middleName: u.middleName,
-        lastName: u.lastName,
-        contactNo: u.contactNo,
-        address: u.address,
-        roleId: u.roleId,
-        roleName: u.role ? u.role.name : null,
-        isActive: u.isActive,
-        createdAt: u.createdAt,
-      })),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+  /* ================= QUERY ================= */
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        contactNo: true,
+        address: true,
+        roleId: true,
+        isActive: true,
+        createdAt: true,
+        role: { select: { name: true } },
       },
-    };
-  },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return {
+    data: users.map(u => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      middleName: u.middleName,
+      lastName: u.lastName,
+      contactNo: u.contactNo,
+      address: u.address,
+      roleId: u.roleId,
+      roleName: u.role ? u.role.name : null,
+      isActive: u.isActive,
+      createdAt: u.createdAt,
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 
 };
