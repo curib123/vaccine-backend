@@ -4,6 +4,7 @@ import {
   generateRecordsForChild,
   getAllRecords,
   getAllStatus,
+  getRecordsByChildId,
   recomputeSummary,
   updateRecordStatus,
 } from '../controllers/records.controller.js';
@@ -27,6 +28,18 @@ router.get(
   '/',
   verifyToken,
   getAllRecords
+);
+
+/**
+ * GET /api/records/child/:childId
+ * - Get immunization records for a specific child
+ * - Auto-generate records if missing
+ * - Includes summary
+ */
+router.get(
+  '/child/:childId',
+  verifyToken,
+  getRecordsByChildId
 );
 
 /**

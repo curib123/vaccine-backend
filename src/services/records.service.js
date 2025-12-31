@@ -1,4 +1,8 @@
 import { prisma } from '../config/db.js';
+import {
+  IMMUNIZATION_STATUS,
+  SORT_FIELDS,
+} from '../constants/immunization.constants.js';
 
 /* =====================================================
    DATE HELPERS
@@ -21,40 +25,25 @@ const addDays = (date, days) => {
 export const RecordsService = {
 
   /* =====================================================
-     GET ALL IMMUNIZATION STATUSES
+     IMMUNIZATION STATUSES
   ===================================================== */
   async getAllStatus() {
-    return [
-      { value: 'PENDING', label: 'Pending' },
-      { value: 'COMPLETED', label: 'Completed' },
-      { value: 'SKIPPED', label: 'Skipped' },
-      { value: 'CANCELLED', label: 'Cancelled' },
-    ];
-  },
-
-  /* =====================================================
-     ENSURE RECORDS EXIST FOR CHILD
-  ===================================================== */
-  async ensureGeneratedForChild(childId, createdById) {
-    const count = await prisma.immunizationRecord.count({
-      where: { childId, isDeleted: false },
-    });
-
-    if (count === 0) {
-      await this.generateForChild(childId, createdById);
-    }
+    return Object.values(IMMUNIZATION_STATUS).map(value => ({
+      value,
+      label: value.charAt(0) + value.slice(1).toLowerCase(),
+    }));
   },
 
   /* =====================================================
      GENERATE RECORDS FOR A CHILD
   ===================================================== */
-  async generateForChild(childId, createdById) {
+  async generateForChild(childId, createdByUserId) {
     if (!childId) throw new Error('Child ID is required');
+    if (!createdByUserId) throw new Error('createdByUserId is required');
 
     const child = await prisma.child.findFirst({
-      where: { id: childId, isDeleted: false },
+      where: { id: Number(childId), isDeleted: false },
     });
-
     if (!child) throw new Error('Child not found');
 
     const vaccines = await prisma.vaccine.findMany({
@@ -70,14 +59,12 @@ export const RecordsService = {
     let createdCount = 0;
 
     for (const vaccine of vaccines) {
-      if (!vaccine.schedules.length) continue;
-
       let previousDueDate = null;
 
       for (const schedule of vaccine.schedules) {
         const exists = await prisma.immunizationRecord.findFirst({
           where: {
-            childId,
+            childId: child.id,
             vaccineId: vaccine.id,
             doseNumber: schedule.doseNumber,
             isDeleted: false,
@@ -100,65 +87,73 @@ export const RecordsService = {
           nextDueDate = addDays(previousDueDate, schedule.intervalDays);
         }
 
-        const record = await prisma.immunizationRecord.create({
+        await prisma.immunizationRecord.create({
           data: {
-            childId,
+            childId: child.id,
             vaccineId: vaccine.id,
             dose: schedule.doseLabel,
             doseNumber: schedule.doseNumber,
             nextDueDate,
-            status: 'PENDING',
-            createdById,
+            status: IMMUNIZATION_STATUS.PENDING,
+            createdBy: {
+              connect: { id: createdByUserId },
+            },
           },
         });
 
-        previousDueDate = record.nextDueDate;
+        previousDueDate = nextDueDate;
         createdCount++;
       }
     }
 
-    await this.updateSummary(childId);
+    await this.updateSummary(child.id);
     return { created: createdCount };
   },
 
   /* =====================================================
      UPDATE RECORD STATUS
   ===================================================== */
-  async updateRecordStatus(recordId, payload, updatedById) {
+  async updateRecordStatus(recordId, payload, updatedByUserId) {
     const { status, dateGiven, remarks } = payload;
 
     if (!recordId) throw new Error('Record ID is required');
-    if (!status) throw new Error('Status is required');
+    if (!Object.values(IMMUNIZATION_STATUS).includes(status)) {
+      throw new Error('Invalid immunization status');
+    }
+    if (!updatedByUserId) throw new Error('updatedByUserId is required');
 
     const record = await prisma.immunizationRecord.findFirst({
-      where: { id: recordId, isDeleted: false },
+      where: { id: Number(recordId), isDeleted: false },
     });
-
     if (!record) throw new Error('Record not found');
 
-    const updateData = {
+    const data = {
       status,
-      remarks: remarks || null,
-      updatedById,
+      remarks: remarks ?? null,
+      updatedBy: {
+        connect: { id: updatedByUserId },
+      },
     };
 
-    if (status === 'COMPLETED') {
+    if (status === IMMUNIZATION_STATUS.COMPLETED) {
       const given = dateGiven ? new Date(dateGiven) : new Date();
-
-      updateData.dateGiven = given;
-      updateData.isMissed = false;
-      updateData.isLate =
-        record.nextDueDate && given > record.nextDueDate;
+      data.dateGiven = given;
+      data.isMissed = false;
+      data.isLate =
+        record.nextDueDate ? given > record.nextDueDate : false;
     }
 
-    if (status === 'SKIPPED' || status === 'CANCELLED') {
-      updateData.isMissed = true;
-      updateData.isLate = false;
+    if (
+      status === IMMUNIZATION_STATUS.SKIPPED ||
+      status === IMMUNIZATION_STATUS.CANCELLED
+    ) {
+      data.isMissed = true;
+      data.isLate = false;
     }
 
     const updated = await prisma.immunizationRecord.update({
-      where: { id: recordId },
-      data: updateData,
+      where: { id: record.id },
+      data,
     });
 
     await this.updateSummary(record.childId);
@@ -166,7 +161,7 @@ export const RecordsService = {
   },
 
   /* =====================================================
-     LIST IMMUNIZATION RECORDS
+     LIST RECORDS
   ===================================================== */
   async getAllRecords({
     page = 1,
@@ -177,20 +172,10 @@ export const RecordsService = {
     vaccineId,
     overdue,
     missed,
-    sortBy = 'nextDueDate',
+    sortBy = SORT_FIELDS.NEXT_DUE_DATE,
     sortOrder = 'asc',
-    systemUserId = 1,
   }) {
-    page = Number(page);
-    limit = Number(limit);
-    const skip = (page - 1) * limit;
-
-    if (childId) {
-      await this.ensureGeneratedForChild(
-        Number(childId),
-        systemUserId
-      );
-    }
+    const skip = (Number(page) - 1) * Number(limit);
 
     const where = { isDeleted: false };
 
@@ -201,36 +186,24 @@ export const RecordsService = {
 
     if (overdue === 'true') {
       where.nextDueDate = { lt: new Date() };
-      where.status = 'PENDING';
+      where.status = IMMUNIZATION_STATUS.PENDING;
     }
 
     if (search) {
       where.OR = [
         { dose: { contains: search } },
-        {
-          child: {
-            OR: [
-              { firstName: { contains: search } },
-              { lastName: { contains: search } },
-            ],
-          },
-        },
+        { child: { firstName: { contains: search } } },
+        { child: { lastName: { contains: search } } },
         { vaccine: { name: { contains: search } } },
       ];
     }
-
-    const allowedSort = ['nextDueDate', 'createdAt', 'status'];
-
-    const orderBy = allowedSort.includes(sortBy)
-      ? { [sortBy]: sortOrder === 'desc' ? 'desc' : 'asc' }
-      : { nextDueDate: 'asc' };
 
     const [records, total] = await Promise.all([
       prisma.immunizationRecord.findMany({
         where,
         skip,
-        take: limit,
-        orderBy,
+        take: Number(limit),
+        orderBy: { [sortBy]: sortOrder },
         include: {
           child: { select: { id: true, firstName: true, lastName: true } },
           vaccine: { select: { id: true, name: true } },
@@ -242,8 +215,8 @@ export const RecordsService = {
     return {
       data: records,
       pagination: {
-        page,
-        limit,
+        page: Number(page),
+        limit: Number(limit),
         total,
         totalPages: Math.ceil(total / limit),
       },
@@ -255,12 +228,12 @@ export const RecordsService = {
   ===================================================== */
   async updateSummary(childId) {
     const records = await prisma.immunizationRecord.findMany({
-      where: { childId, isDeleted: false },
+      where: { childId: Number(childId), isDeleted: false },
     });
 
     const totalRequired = records.length;
     const totalCompleted = records.filter(
-      r => r.status === 'COMPLETED'
+      r => r.status === IMMUNIZATION_STATUS.COMPLETED
     ).length;
     const totalMissed = records.filter(r => r.isMissed).length;
 
@@ -270,9 +243,9 @@ export const RecordsService = {
         : Number(((totalCompleted / totalRequired) * 100).toFixed(2));
 
     await prisma.immunizationSummary.upsert({
-      where: { childId },
+      where: { childId: Number(childId) },
       create: {
-        childId,
+        childId: Number(childId),
         totalRequired,
         totalCompleted,
         totalMissed,
@@ -285,5 +258,30 @@ export const RecordsService = {
         completionRate,
       },
     });
+  },
+
+  /* =====================================================
+     GET RECORDS BY CHILD ID
+  ===================================================== */
+  async getRecordsByChildId({ childId }) {
+    if (!childId || Number.isNaN(Number(childId))) {
+      return { data: [], summary: null };
+    }
+
+    const records = await prisma.immunizationRecord.findMany({
+      where: { childId: Number(childId), isDeleted: false },
+      include: { vaccine: true },
+      orderBy: { nextDueDate: 'asc' },
+    });
+
+    if (!records.length) {
+      return { data: [], summary: null };
+    }
+
+    const summary = await prisma.immunizationSummary.findUnique({
+      where: { childId: Number(childId) },
+    });
+
+    return { data: records, summary };
   },
 };

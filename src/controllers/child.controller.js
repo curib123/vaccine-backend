@@ -5,7 +5,10 @@ import { ChildService } from '../services/child.service.js';
 ===================================================== */
 export const createChild = async (req, res) => {
   try {
-    const child = await ChildService.createChild(req.body);
+    const child = await ChildService.createChild(
+      req.body,
+      req.user.id // 👈 from verifyToken (Bearer decode)
+    );
 
     return res.status(201).json({
       success: true,
