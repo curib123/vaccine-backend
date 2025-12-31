@@ -4,6 +4,7 @@ import express from 'express';
 
 import authRoutes from './routes/auth.route.js';
 import ChildRoutes from './routes/child.route.js';
+import dashboardRoutes from './routes/dashboard.route.js';
 import ParentRoutes from './routes/parent.route.js';
 import recordsRoutes from './routes/records.routes.js';
 import roleRoutes from './routes/role.route.js';
@@ -32,6 +33,7 @@ app.use('/api/parent', ParentRoutes);
 app.use('/api/vaccine', VaccineRoutes);
 app.use('/api/child', ChildRoutes);
 app.use('/api/records', recordsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 
 /* 🔥 Health check */
