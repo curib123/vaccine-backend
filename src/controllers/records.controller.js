@@ -83,29 +83,35 @@ export const getAllStatus = async (_req, res) => {
   }
 };
 
-/* =====================================================
-   MANUAL GENERATION (ADMIN / DEBUG)
-===================================================== */
-export const generateRecordsForChild = async (req, res) => {
+export const generateRecordsByVaccines = async (req, res) => {
   try {
-    const childId = parseId(req.params.childId, 'Child ID');
+    // ✅ Parse from BODY (POST)
+    const childId = parseId(req.body.childId, 'Child ID');
+    const { vaccineIds } = req.body;
 
-    const result = await RecordsService.generateForChild(
+    if (!Array.isArray(vaccineIds) || vaccineIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vaccine IDs are required',
+      });
+    }
+
+    await RecordsService.generateForChildByVaccines(
       childId,
-      req.user.id // ✅ FROM BEARER TOKEN
+      vaccineIds,
+      req.user.id
     );
 
-    return res.status(200).json({
+    return res.json({
       success: true,
-      message: 'Immunization records generated successfully',
-      data: result,
+      message: 'Vaccine records generated successfully',
     });
-  } catch (error) {
-    console.error('❌ GENERATE RECORDS ERROR:', error);
+  } catch (err) {
+    console.error('❌ GENERATE RECORDS ERROR:', err);
 
     return res.status(400).json({
       success: false,
-      message: error.message || 'Failed to generate immunization records',
+      message: err.message || 'Failed to generate records',
     });
   }
 };
@@ -157,3 +163,4 @@ export const getRecordsByChildId = async (req, res) => {
     });
   }
 };
+

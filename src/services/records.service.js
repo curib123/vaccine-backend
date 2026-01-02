@@ -34,82 +34,84 @@ export const RecordsService = {
     }));
   },
 
-  /* =====================================================
-     GENERATE RECORDS FOR A CHILD
-  ===================================================== */
-  async generateForChild(childId, createdByUserId) {
-    if (!childId) throw new Error('Child ID is required');
-    if (!createdByUserId) throw new Error('createdByUserId is required');
 
-    const child = await prisma.child.findFirst({
-      where: { id: Number(childId), isDeleted: false },
-    });
-    if (!child) throw new Error('Child not found');
+async generateForChildByVaccines(
+  childId,
+  vaccineIds,
+  createdByUserId
+) {
+  const child = await prisma.child.findUnique({
+    where: { id: childId },
+  });
 
-    const vaccines = await prisma.vaccine.findMany({
-      where: { isDeleted: false },
-      include: {
-        schedules: {
-          where: { isActive: true },
-          orderBy: { doseNumber: 'asc' },
-        },
+  if (!child) throw new Error('Child not found');
+
+  const vaccines = await prisma.vaccine.findMany({
+    where: {
+      id: { in: vaccineIds.map(Number) },
+      isDeleted: false,
+    },
+    include: {
+      schedules: {
+        where: { isActive: true },
+        orderBy: { doseNumber: 'asc' },
       },
-    });
+    },
+  });
 
-    let createdCount = 0;
+  for (const vaccine of vaccines) {
+    let previousDueDate = null;
 
-    for (const vaccine of vaccines) {
-      let previousDueDate = null;
+    for (const schedule of vaccine.schedules) {
+      const exists = await prisma.immunizationRecord.findFirst({
+        where: {
+          childId,
+          vaccineId: vaccine.id,
+          doseNumber: schedule.doseNumber,
+          isDeleted: false,
+        },
+      });
 
-      for (const schedule of vaccine.schedules) {
-        const exists = await prisma.immunizationRecord.findFirst({
-          where: {
-            childId: child.id,
-            vaccineId: vaccine.id,
-            doseNumber: schedule.doseNumber,
-            isDeleted: false,
-          },
-        });
-
-        if (exists) {
-          previousDueDate = exists.nextDueDate;
-          continue;
-        }
-
-        let nextDueDate = null;
-
-        if (schedule.doseNumber === 1) {
-          nextDueDate = addMonths(
-            child.birthDate,
-            schedule.recommendedAgeInMonths
-          );
-        } else if (schedule.intervalDays && previousDueDate) {
-          nextDueDate = addDays(previousDueDate, schedule.intervalDays);
-        }
-
-        await prisma.immunizationRecord.create({
-          data: {
-            childId: child.id,
-            vaccineId: vaccine.id,
-            dose: schedule.doseLabel,
-            doseNumber: schedule.doseNumber,
-            nextDueDate,
-            status: IMMUNIZATION_STATUS.PENDING,
-            createdBy: {
-              connect: { id: createdByUserId },
-            },
-          },
-        });
-
-        previousDueDate = nextDueDate;
-        createdCount++;
+      if (exists) {
+        previousDueDate = exists.nextDueDate;
+        continue;
       }
+
+      let nextDueDate = null;
+
+      if (schedule.doseNumber === 1) {
+        nextDueDate = addMonths(
+          child.birthDate,
+          schedule.recommendedAgeInMonths
+        );
+      } else if (schedule.intervalDays && previousDueDate) {
+        nextDueDate = addDays(
+          previousDueDate,
+          schedule.intervalDays
+        );
+      }
+
+      await prisma.immunizationRecord.create({
+        data: {
+          dose: schedule.doseLabel,
+          doseNumber: schedule.doseNumber,
+          nextDueDate,
+          status: IMMUNIZATION_STATUS.PENDING,
+
+          /* ✅ REQUIRED RELATIONS */
+          child: { connect: { id: childId } },
+          vaccine: { connect: { id: vaccine.id } },
+          createdBy: { connect: { id: createdByUserId } },
+        },
+      });
+
+      previousDueDate = nextDueDate;
     }
+  }
 
-    await this.updateSummary(child.id);
-    return { created: createdCount };
-  },
-
+  await this.updateSummary(childId);
+}
+,
   /* =====================================================
      UPDATE RECORD STATUS
   ===================================================== */
@@ -285,3 +287,5 @@ export const RecordsService = {
     return { data: records, summary };
   },
 };
+
+

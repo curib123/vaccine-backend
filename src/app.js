@@ -2,15 +2,17 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 
-import AnnouncementRoutes from './routes/announcement.route.js'; // ✅ NEW
+import AnnouncementRoutes from './routes/announcement.route.js';
 import authRoutes from './routes/auth.route.js';
 import ChildRoutes from './routes/child.route.js';
 import dashboardRoutes from './routes/dashboard.route.js';
 import ParentRoutes from './routes/parent.route.js';
+import parentDashboardRoutes from './routes/parentDashboard.route.js';
 import recordsRoutes from './routes/records.routes.js';
 import roleRoutes from './routes/role.route.js';
 import UserRoutes from './routes/user.route.js';
 import VaccineRoutes from './routes/vaccine.routes.js';
+import VisitRoutes from './routes/visit.route.js';
 
 const app = express();
 
@@ -35,7 +37,9 @@ app.use('/api/vaccine', VaccineRoutes);
 app.use('/api/child', ChildRoutes);
 app.use('/api/records', recordsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/announcements', AnnouncementRoutes); // ✅ NEW
+app.use('/api/announcements', AnnouncementRoutes);
+app.use('/api/parentDashboard', parentDashboardRoutes);
+app.use('/api/visits', VisitRoutes); // ✅ VISITS CRUD
 
 /* 🔥 Health check */
 app.get('/', (req, res) => {

@@ -1,7 +1,7 @@
 import express from 'express';
 
 import {
-  generateRecordsForChild,
+  generateRecordsByVaccines,
   getAllRecords,
   getAllStatus,
   getRecordsByChildId,
@@ -22,7 +22,6 @@ const router = express.Router();
  * - Search
  * - Filter
  * - Sort
- * - Auto-generate records if missing
  */
 router.get(
   '/',
@@ -33,7 +32,6 @@ router.get(
 /**
  * GET /api/records/child/:childId
  * - Get immunization records for a specific child
- * - Auto-generate records if missing
  * - Includes summary
  */
 router.get(
@@ -63,14 +61,18 @@ router.patch(
   updateRecordStatus
 );
 
+
 /**
- * POST /api/records/generate/:childId
- * - Manually generate records for a child (admin/debug)
+ * 🆕 POST /api/records/generate/by-vaccines
+ * - Manually generate records for a child by selected vaccines
+ * Body:
+ *  - childId
+ *  - vaccineIds[]
  */
 router.post(
-  '/generate/:childId',
+  '/generate/by-vaccines',
   verifyToken,
-  generateRecordsForChild
+  generateRecordsByVaccines
 );
 
 /**
