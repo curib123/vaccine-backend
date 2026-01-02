@@ -1,112 +1,39 @@
 import { prisma } from '../config/db.js';
-import { RecordsService } from './records.service.js';
 
 export const ChildService = {
 
-  /* =====================================================
-     CREATE CHILD → THEN GENERATE IMMUNIZATION RECORDS
-  ===================================================== */
-  async createChild(payload, createdById) {
-    const {
-      parentId,
-      firstName,
-      middleName,
-      lastName,
-      gender,
-      birthDate,
-      birthPlace,
-    } = payload;
+/* =====================================================
+   CREATE CHILD
+   → CHILD DATA ONLY (NO RECORD GENERATION)
+===================================================== */
+async createChild(payload, createdById) {
+  const {
+    parentId,
+    birthDate,
+    ...childData
+  } = payload;
 
-    /* ================= VALIDATION ================= */
-    if (
-      !parentId ||
-      !firstName ||
-      !lastName ||
-      !gender ||
-      !birthDate ||
-      !birthPlace
-    ) {
-      throw new Error('Missing required child fields');
-    }
+  /* ---------- VALIDATION ---------- */
+  if (!parentId) {
+    throw new Error('parentId is required');
+  }
 
-    if (!createdById) {
-      throw new Error('createdById (user from token) is required');
-    }
+  if (!birthDate) {
+    throw new Error('birthDate is required');
+  }
 
-    /* ================= CREATE CHILD (COMMIT FIRST) ================= */
-    const child = await prisma.child.create({
-      data: {
-        parentId: Number(parentId),
-        firstName,
-        middleName: middleName || null,
-        lastName,
-        gender,
-        birthDate: new Date(birthDate),
-        birthPlace,
-      },
-      select: {
-        id: true,
-        firstName: true,
-        middleName: true,
-        lastName: true,
-        gender: true,
-        birthDate: true,
-        birthPlace: true,
-        createdAt: true,
-      },
-    });
+  /* ---------- CREATE CHILD ---------- */
+  const child = await prisma.child.create({
+    data: {
+      ...childData,
+      parentId: Number(parentId),
+      birthDate: new Date(birthDate),
+      createdById,
+    },
+  });
 
-    /* ================= GENERATE IMMUNIZATION RECORDS ================= */
-    try {
-      await RecordsService.generateForChild(child.id, createdById);
-    } catch (err) {
-      // ⚠️ Do NOT fail child creation if generation fails
-      console.error(
-        '⚠️ IMMUNIZATION GENERATION FAILED FOR CHILD:',
-        child.id,
-        err.message
-      );
-    }
-
-    return child;
-  },
-
-  /* =====================================================
-     UPDATE CHILD
-  ===================================================== */
-  async updateChildById(id, payload) {
-    if (!id) throw new Error('Child ID is required');
-
-    const child = await prisma.child.findFirst({
-      where: { id, isDeleted: false },
-    });
-
-    if (!child) throw new Error('Child not found');
-
-    return prisma.child.update({
-      where: { id },
-      data: {
-        firstName: payload.firstName,
-        middleName: payload.middleName,
-        lastName: payload.lastName,
-        gender: payload.gender,
-        birthDate: payload.birthDate
-          ? new Date(payload.birthDate)
-          : undefined,
-        birthPlace: payload.birthPlace,
-      },
-      select: {
-        id: true,
-        firstName: true,
-        middleName: true,
-        lastName: true,
-        gender: true,
-        birthDate: true,
-        birthPlace: true,
-        updatedAt: true,
-      },
-    });
-  },
+  return child;
+},
 
   /* =====================================================
      SOFT DELETE / RESTORE CHILD

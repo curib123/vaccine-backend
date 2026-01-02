@@ -2,12 +2,42 @@ import { ChildService } from '../services/child.service.js';
 
 /* =====================================================
    CREATE CHILD
+   → CHILD DATA ONLY (NO RECORD GENERATION)
 ===================================================== */
 export const createChild = async (req, res) => {
   try {
+    const childPayload = req.body;
+
+    // 🔐 user from verifyToken
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized',
+      });
+    }
+
+    /* ================= BASIC VALIDATION ================= */
+
+    if (!childPayload.parentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'parentId is required',
+      });
+    }
+
+    if (!childPayload.birthDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'birthDate is required',
+      });
+    }
+
+    /* ================= CREATE CHILD ================= */
+
     const child = await ChildService.createChild(
-      req.body,
-      req.user.id // 👈 from verifyToken (Bearer decode)
+      childPayload,
+      userId
     );
 
     return res.status(201).json({
@@ -20,7 +50,7 @@ export const createChild = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || 'Failed to create child',
     });
   }
 };
