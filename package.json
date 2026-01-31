@@ -2,13 +2,15 @@
   "name": "health-center-system",
   "version": "1.0.0",
   "main": "index.js",
-"scripts": {
-  "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-  "dev": "nodemon src/server.js",
-  "seed": "npx prisma db seed",
-  "deploy": "prisma migrate deploy && prisma generate",
-  "start": "node src/server.js"
-},
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "dev": "nodemon src/server.js",
+    "deploy": "prisma migrate deploy && prisma generate",
+    "start": "node src/server.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -16,6 +18,7 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.19.1",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
