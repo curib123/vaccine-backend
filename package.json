@@ -2,10 +2,11 @@
   "name": "health-center-system",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-      "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "dev": "nodemon src/server.js"
-  },
+ "scripts": {
+  "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+  "dev": "nodemon src/server.js",
+  "seed": "npx prisma db seed"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
