@@ -2,10 +2,12 @@
   "name": "health-center-system",
   "version": "1.0.0",
   "main": "index.js",
- "scripts": {
+"scripts": {
   "test": "NODE_OPTIONS=--experimental-vm-modules jest",
   "dev": "nodemon src/server.js",
-  "seed": "npx prisma db seed"
+  "seed": "npx prisma db seed",
+  "deploy": "prisma migrate deploy && prisma generate",
+  "start": "node src/server.js"
 },
   "keywords": [],
   "author": "",
