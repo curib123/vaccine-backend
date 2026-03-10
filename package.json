@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-      "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "dev": "nodemon src/server.js"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "dev": "nodemon src/server.js",
+    "db:seed": "prisma db seed"
   },
   "keywords": [],
   "author": "",
@@ -24,5 +25,8 @@
   "devDependencies": {
     "jest": "^30.2.0",
     "nodemon": "^3.1.11"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

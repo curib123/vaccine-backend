@@ -3,7 +3,7 @@ PORT=3001
 NODE_ENV=development
 
 # ================= DATABASE =================
-DATABASE_URL=mysql://root:@localhost:3306/tracking_vaccine
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/tracking_vaccine?sslmode=require
 
 # ================= APP LOGIC =================
 PARENT_ROLE_NAME="Parent/Guardian"
