@@ -8,6 +8,8 @@ import {
   PrismaClient,
 } from '@prisma/client';
 
+import { VACCINE_CATALOG } from '../src/constants/vaccineCatalog.constants.js';
+
 const prisma = new PrismaClient();
 
 const DEFAULT_PASSWORD = 'Password123!';
@@ -30,63 +32,55 @@ const rolePermissionMap = {
   ],
 };
 
-const vaccineSeeds = [
+const announcements = [
   {
-    name: 'BCG',
-    description: 'Tuberculosis vaccine given at birth.',
-    recommendedAge: 'At birth',
-    totalDoses: 1,
-    requiresBooster: false,
-    boosterAfterMonths: null,
-    schedules: [
-      { doseLabel: 'Dose 1', doseNumber: 1, recommendedAgeInMonths: 0, intervalDays: null },
-    ],
-  },
-  {
-    name: 'Pentavalent',
-    description: 'Protects against DTP, Hep B, and Hib.',
-    recommendedAge: '6, 10, and 14 weeks',
-    totalDoses: 3,
-    requiresBooster: false,
-    boosterAfterMonths: null,
-    schedules: [
-      { doseLabel: 'Dose 1', doseNumber: 1, recommendedAgeInMonths: 2, intervalDays: null },
-      { doseLabel: 'Dose 2', doseNumber: 2, recommendedAgeInMonths: 3, intervalDays: 28 },
-      { doseLabel: 'Dose 3', doseNumber: 3, recommendedAgeInMonths: 4, intervalDays: 28 },
-    ],
-  },
-  {
-    name: 'MMR',
-    description: 'Measles, mumps, and rubella vaccine.',
-    recommendedAge: '9 months and booster',
-    totalDoses: 2,
-    requiresBooster: true,
-    boosterAfterMonths: 6,
-    schedules: [
-      { doseLabel: 'Dose 1', doseNumber: 1, recommendedAgeInMonths: 9, intervalDays: null },
-      { doseLabel: 'Dose 2', doseNumber: 2, recommendedAgeInMonths: 15, intervalDays: 180 },
-    ],
-  },
-];
-
-const announcementSeeds = [
-  {
-    title: 'Monthly Immunization Drive',
-    message: 'Bring immunization cards every first Monday of the month.',
+    title: 'Bring the immunization card',
+    message: 'Present the child immunization card on every immunization update for proper dose tracking.',
     isActive: true,
   },
   {
-    title: 'Cold Chain Reminder',
-    message: 'Vaccines are available from 8:00 AM to 4:00 PM on weekdays.',
+    title: 'Upcoming dose reminders',
+    message: 'Parents will receive email reminders before scheduled vaccines become due.',
     isActive: true,
   },
 ];
 
-function addMonths(date, months) {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-}
+const childSeeds = [
+  {
+    key: 'child-1',
+    ranking: 1,
+    firstName: 'Liam',
+    middleName: '',
+    lastName: 'Dela Cruz',
+    gender: Gender.MALE,
+    birthDate: new Date('2025-08-01T00:00:00.000Z'),
+    birthPlace: 'City General Hospital',
+    motherName: 'Maria Dela Cruz',
+    fatherName: 'Paolo Dela Cruz',
+    birthHeightCm: 50,
+    birthWeightKg: 3.2,
+    healthCenter: 'Barangay Health Center',
+    barangay: 'Barangay Central',
+    familyNumber: 'FC-001',
+  },
+  {
+    key: 'child-2',
+    ranking: 2,
+    firstName: 'Sofia',
+    middleName: 'M',
+    lastName: 'Reyes',
+    gender: Gender.FEMALE,
+    birthDate: new Date('2025-06-15T00:00:00.000Z'),
+    birthPlace: 'Community Birthing Clinic',
+    motherName: 'Ana Reyes',
+    fatherName: 'Juan Reyes',
+    birthHeightCm: 48,
+    birthWeightKg: 2.9,
+    healthCenter: 'Barangay Health Center',
+    barangay: 'Barangay North',
+    familyNumber: 'FC-002',
+  },
+];
 
 function addDays(date, days) {
   const next = new Date(date);
@@ -94,96 +88,10 @@ function addDays(date, days) {
   return next;
 }
 
-function createRecordPlan(child, vaccineByName) {
-  const bcg = vaccineByName.BCG;
-  const pentavalent = vaccineByName.Pentavalent;
-  const mmr = vaccineByName.MMR;
-
-  return [
-    {
-      childKey: child.key,
-      vaccineId: bcg.id,
-      dose: 'Dose 1',
-      doseNumber: 1,
-      nextDueDate: addMonths(child.birthDate, 0),
-      status: ImmunizationStatus.COMPLETED,
-      dateGiven: addDays(child.birthDate, 1),
-      remarks: 'Administered after delivery clearance.',
-      batchNumber: 'BCG-2026-001',
-      manufacturer: 'BioVax',
-      administeredBy: 'Nurse Joy',
-      administeredAt: 'Health Center Room 1',
-      visitKey: `${child.key}-visit-1`,
-    },
-    {
-      childKey: child.key,
-      vaccineId: pentavalent.id,
-      dose: 'Dose 1',
-      doseNumber: 1,
-      nextDueDate: addMonths(child.birthDate, 2),
-      status: ImmunizationStatus.COMPLETED,
-      dateGiven: addMonths(child.birthDate, 2),
-      remarks: 'No adverse events observed.',
-      batchNumber: 'PENTA-2026-101',
-      manufacturer: 'HealthPharm',
-      administeredBy: 'Nurse Joy',
-      administeredAt: 'Barangay Health Center',
-      visitKey: `${child.key}-visit-2`,
-    },
-    {
-      childKey: child.key,
-      vaccineId: pentavalent.id,
-      dose: 'Dose 2',
-      doseNumber: 2,
-      nextDueDate: addDays(addMonths(child.birthDate, 2), 28),
-      status:
-        child.key === 'child-1'
-          ? ImmunizationStatus.PENDING
-          : ImmunizationStatus.COMPLETED,
-      dateGiven:
-        child.key === 'child-1'
-          ? null
-          : addDays(addMonths(child.birthDate, 3), 2),
-      remarks:
-        child.key === 'child-1'
-          ? 'Scheduled for next visit.'
-          : 'Completed with mild fever monitoring advised.',
-      batchNumber: child.key === 'child-1' ? null : 'PENTA-2026-102',
-      manufacturer: child.key === 'child-1' ? null : 'HealthPharm',
-      administeredBy: child.key === 'child-1' ? null : 'Nurse Joy',
-      administeredAt: child.key === 'child-1' ? null : 'Barangay Health Center',
-      visitKey: child.key === 'child-1' ? null : `${child.key}-visit-3`,
-    },
-    {
-      childKey: child.key,
-      vaccineId: mmr.id,
-      dose: 'Dose 1',
-      doseNumber: 1,
-      nextDueDate: addMonths(child.birthDate, 9),
-      status:
-        child.key === 'child-2'
-          ? ImmunizationStatus.SKIPPED
-          : ImmunizationStatus.PENDING,
-      dateGiven: null,
-      remarks:
-        child.key === 'child-2'
-          ? 'Deferred due to temporary fever.'
-          : 'Pending age eligibility.',
-      batchNumber: null,
-      manufacturer: null,
-      administeredBy: null,
-      administeredAt: null,
-      visitKey: null,
-    },
-  ];
-}
-
 function summarize(records) {
   const totalRequired = records.length;
-  const totalCompleted = records.filter(
-    (record) => record.status === ImmunizationStatus.COMPLETED
-  ).length;
-  const totalMissed = records.filter((record) => record.isMissed).length;
+  const totalCompleted = records.filter(record => record.status === ImmunizationStatus.COMPLETED).length;
+  const totalMissed = records.filter(record => record.isMissed).length;
 
   return {
     totalRequired,
@@ -199,9 +107,10 @@ function summarize(records) {
 async function main() {
   const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
+  await prisma.notification.deleteMany();
+  await prisma.auditLog.deleteMany();
   await prisma.immunizationRecord.deleteMany();
   await prisma.immunizationSummary.deleteMany();
-  await prisma.immunizationVisit.deleteMany();
   await prisma.immunizationSchedule.deleteMany();
   await prisma.child.deleteMany();
   await prisma.userPermission.deleteMany();
@@ -213,12 +122,12 @@ async function main() {
   await prisma.role.deleteMany();
 
   await prisma.permission.createMany({
-    data: Object.values(PermissionCode).map((code) => ({ code })),
+    data: Object.values(PermissionCode).map(code => ({ code })),
   });
 
   const permissions = await prisma.permission.findMany();
   const permissionByCode = Object.fromEntries(
-    permissions.map((permission) => [permission.code, permission])
+    permissions.map(permission => [permission.code, permission])
   );
 
   const roles = {};
@@ -230,7 +139,7 @@ async function main() {
 
   await prisma.rolePermission.createMany({
     data: Object.entries(rolePermissionMap).flatMap(([roleName, codes]) =>
-      codes.map((code) => ({
+      codes.map(code => ({
         roleId: roles[roleName].id,
         permissionId: permissionByCode[code].id,
       }))
@@ -243,7 +152,7 @@ async function main() {
       email: 'admin@healthcenter.local',
       roleId: roles.ADMIN.id,
       firstName: 'System',
-      middleName: null,
+      middleName: '',
       lastName: 'Administrator',
       contactNo: '09170000001',
       address: 'Health Center Office',
@@ -253,17 +162,17 @@ async function main() {
       email: 'nurse@healthcenter.local',
       roleId: roles.NURSE.id,
       firstName: 'Joy',
-      middleName: 'A.',
+      middleName: 'A',
       lastName: 'Santos',
       contactNo: '09170000002',
-      address: 'Health Center Clinic',
+      address: 'Barangay Health Center',
     },
     {
       key: 'parent-1',
       email: 'maria.parent@healthcenter.local',
       roleId: roles[parentRoleName].id,
       firstName: 'Maria',
-      middleName: null,
+      middleName: '',
       lastName: 'Dela Cruz',
       contactNo: '09170000003',
       address: 'Purok 1, Barangay Central',
@@ -273,10 +182,10 @@ async function main() {
       email: 'juan.parent@healthcenter.local',
       roleId: roles[parentRoleName].id,
       firstName: 'Juan',
-      middleName: 'P.',
+      middleName: 'P',
       lastName: 'Reyes',
       contactNo: '09170000004',
-      address: 'Purok 2, Barangay Central',
+      address: 'Purok 2, Barangay North',
     },
   ];
 
@@ -288,7 +197,7 @@ async function main() {
         password: hashedPassword,
         roleId: seed.roleId,
         firstName: seed.firstName,
-        middleName: seed.middleName,
+        middleName: seed.middleName || null,
         lastName: seed.lastName,
         contactNo: seed.contactNo,
         address: seed.address,
@@ -297,10 +206,10 @@ async function main() {
   }
 
   await prisma.userPermission.createMany({
-    data: userSeeds.flatMap((seed) =>
+    data: userSeeds.flatMap(seed =>
       rolePermissionMap[
-        Object.keys(roles).find((roleName) => roles[roleName].id === seed.roleId)
-      ].map((code) => ({
+        Object.keys(roles).find(roleName => roles[roleName].id === seed.roleId)
+      ].map(code => ({
         userId: users[seed.key].id,
         permissionId: permissionByCode[code].id,
         allowed: true,
@@ -309,168 +218,138 @@ async function main() {
   });
 
   const vaccines = {};
-  for (const vaccineSeed of vaccineSeeds) {
-    const vaccine = await prisma.vaccine.create({
+  for (const vaccineSeed of VACCINE_CATALOG) {
+    vaccines[vaccineSeed.code] = await prisma.vaccine.create({
       data: {
+        code: vaccineSeed.code,
         name: vaccineSeed.name,
         description: vaccineSeed.description,
         recommendedAge: vaccineSeed.recommendedAge,
         totalDoses: vaccineSeed.totalDoses,
-        requiresBooster: vaccineSeed.requiresBooster,
-        boosterAfterMonths: vaccineSeed.boosterAfterMonths,
+        reorderLevel: vaccineSeed.reorderLevel,
+        stockQuantity: vaccineSeed.stockQuantity,
+        displayOrder: vaccineSeed.displayOrder,
+        unit: 'dose',
+        schedules: {
+          create: vaccineSeed.schedules.map(schedule => ({
+            doseLabel: schedule.doseLabel,
+            doseNumber: schedule.doseNumber,
+            recommendedAgeLabel: schedule.recommendedAgeLabel,
+            dueDaysFromBirth: schedule.dueDaysFromBirth,
+            isActive: true,
+          })),
+        },
       },
-    });
-
-    vaccines[vaccine.name] = vaccine;
-
-    await prisma.immunizationSchedule.createMany({
-      data: vaccineSeed.schedules.map((schedule) => ({
-        vaccineId: vaccine.id,
-        doseLabel: schedule.doseLabel,
-        doseNumber: schedule.doseNumber,
-        recommendedAgeInMonths: schedule.recommendedAgeInMonths,
-        intervalDays: schedule.intervalDays,
-        isActive: true,
-      })),
     });
   }
 
   await prisma.announcement.createMany({
-    data: announcementSeeds,
+    data: announcements,
   });
-
-  const childSeeds = [
-    {
-      key: 'child-1',
-      parentId: users['parent-1'].id,
-      firstName: 'Liam',
-      middleName: null,
-      lastName: 'Dela Cruz',
-      gender: Gender.MALE,
-      birthDate: new Date('2025-04-15T00:00:00.000Z'),
-      birthPlace: 'City General Hospital',
-    },
-    {
-      key: 'child-2',
-      parentId: users['parent-2'].id,
-      firstName: 'Sofia',
-      middleName: 'M.',
-      lastName: 'Reyes',
-      gender: Gender.FEMALE,
-      birthDate: new Date('2025-02-10T00:00:00.000Z'),
-      birthPlace: 'Community Birthing Clinic',
-    },
-  ];
 
   const children = {};
   for (const seed of childSeeds) {
+    const parentKey = seed.key === 'child-1' ? 'parent-1' : 'parent-2';
     children[seed.key] = await prisma.child.create({
       data: {
-        parentId: seed.parentId,
+        parentId: users[parentKey].id,
+        ranking: seed.ranking,
         firstName: seed.firstName,
-        middleName: seed.middleName,
+        middleName: seed.middleName || null,
         lastName: seed.lastName,
         gender: seed.gender,
         birthDate: seed.birthDate,
         birthPlace: seed.birthPlace,
+        address: users[parentKey].address,
+        motherName: seed.motherName,
+        fatherName: seed.fatherName,
+        birthHeightCm: seed.birthHeightCm,
+        birthWeightKg: seed.birthWeightKg,
+        healthCenter: seed.healthCenter,
+        barangay: seed.barangay,
+        familyNumber: seed.familyNumber,
       },
     });
   }
 
-  const visitSeeds = [
-    {
-      key: 'child-1-visit-1',
-      childId: children['child-1'].id,
-      visitDate: new Date('2025-04-16T09:00:00.000Z'),
-      location: 'City General Hospital',
-      nurseName: 'Nurse Joy',
-    },
-    {
-      key: 'child-1-visit-2',
-      childId: children['child-1'].id,
-      visitDate: new Date('2025-06-15T09:00:00.000Z'),
-      location: 'Barangay Health Center',
-      nurseName: 'Nurse Joy',
-    },
-    {
-      key: 'child-2-visit-1',
-      childId: children['child-2'].id,
-      visitDate: new Date('2025-02-11T09:00:00.000Z'),
-      location: 'Community Birthing Clinic',
-      nurseName: 'Nurse Joy',
-    },
-    {
-      key: 'child-2-visit-2',
-      childId: children['child-2'].id,
-      visitDate: new Date('2025-04-10T09:00:00.000Z'),
-      location: 'Barangay Health Center',
-      nurseName: 'Nurse Joy',
-    },
-    {
-      key: 'child-2-visit-3',
-      childId: children['child-2'].id,
-      visitDate: new Date('2025-05-12T09:30:00.000Z'),
-      location: 'Barangay Health Center',
-      nurseName: 'Nurse Joy',
-    },
-  ];
+  const completedDoseMap = {
+    'child-1': new Set(['BCG-1', 'HEPATITIS_B-1', 'PENTAVALENT-1', 'OPV-1']),
+    'child-2': new Set([
+      'BCG-1',
+      'HEPATITIS_B-1',
+      'PENTAVALENT-1',
+      'PENTAVALENT-2',
+      'OPV-1',
+      'OPV-2',
+      'PCV-1',
+      'PCV-2',
+    ]),
+  };
 
-  const visits = {};
-  for (const seed of visitSeeds) {
-    visits[seed.key] = await prisma.immunizationVisit.create({
-      data: {
-        childId: seed.childId,
-        visitDate: seed.visitDate,
-        location: seed.location,
-        nurseName: seed.nurseName,
-      },
-    });
-  }
+  const stockConsumption = new Map();
 
   for (const childSeed of childSeeds) {
-    const recordsPlan = createRecordPlan(childSeed, vaccines);
-    const createdRecords = [];
+    const child = children[childSeed.key];
+    const records = [];
 
-    for (const plan of recordsPlan) {
-      const isMissed =
-        plan.status === ImmunizationStatus.SKIPPED ||
-        plan.status === ImmunizationStatus.CANCELLED;
-      const isLate =
-        plan.status === ImmunizationStatus.COMPLETED &&
-        plan.dateGiven &&
-        plan.nextDueDate
-          ? plan.dateGiven > plan.nextDueDate
-          : false;
+    for (const vaccineSeed of VACCINE_CATALOG) {
+      const vaccine = vaccines[vaccineSeed.code];
 
-      const record = await prisma.immunizationRecord.create({
-        data: {
-          childId: children[plan.childKey].id,
-          vaccineId: plan.vaccineId,
-          visitId: plan.visitKey ? visits[plan.visitKey].id : null,
-          dose: plan.dose,
-          doseNumber: plan.doseNumber,
-          dateGiven: plan.dateGiven,
-          nextDueDate: plan.nextDueDate,
-          status: plan.status,
-          administeredBy: plan.administeredBy,
-          administeredAt: plan.administeredAt,
-          batchNumber: plan.batchNumber,
-          manufacturer: plan.manufacturer,
-          remarks: plan.remarks,
-          isMissed,
-          isLate,
-          createdById: users.admin.id,
-          updatedById: plan.status === ImmunizationStatus.COMPLETED ? users.nurse.id : null,
-        },
-      });
+      for (const schedule of vaccineSeed.schedules) {
+        const doseKey = `${vaccineSeed.code}-${schedule.doseNumber}`;
+        const isCompleted = completedDoseMap[childSeed.key].has(doseKey);
 
-      createdRecords.push(record);
+        let dateGiven = null;
+
+        if (isCompleted) {
+          dateGiven = addDays(child.birthDate, schedule.dueDaysFromBirth);
+          stockConsumption.set(
+            vaccine.id,
+            (stockConsumption.get(vaccine.id) || 0) + 1
+          );
+        }
+
+        const record = await prisma.immunizationRecord.create({
+          data: {
+            childId: child.id,
+            vaccineId: vaccine.id,
+            dose: schedule.doseLabel,
+            doseNumber: schedule.doseNumber,
+            scheduleLabel: schedule.recommendedAgeLabel,
+            dateGiven,
+            nextDueDate: addDays(child.birthDate, schedule.dueDaysFromBirth),
+            status: isCompleted ? ImmunizationStatus.COMPLETED : ImmunizationStatus.PENDING,
+            administeredBy: isCompleted ? 'Nurse Joy Santos' : null,
+            administeredAt: isCompleted ? child.healthCenter : null,
+            batchNumber: isCompleted ? `${vaccineSeed.code}-${schedule.doseNumber}-2026` : null,
+            manufacturer: isCompleted ? 'Healthy Pilipinas Biologics' : null,
+            remarks: isCompleted ? 'Recorded from seed data.' : 'Awaiting scheduled dose.',
+            isMissed: false,
+            isLate: false,
+            createdById: users.admin.id,
+            updatedById: isCompleted ? users.nurse.id : null,
+          },
+        });
+
+        records.push(record);
+      }
     }
 
     await prisma.immunizationSummary.create({
       data: {
-        childId: children[childSeed.key].id,
-        ...summarize(createdRecords),
+        childId: child.id,
+        ...summarize(records),
+      },
+    });
+  }
+
+  for (const [vaccineId, used] of stockConsumption.entries()) {
+    await prisma.vaccine.update({
+      where: { id: vaccineId },
+      data: {
+        stockQuantity: {
+          decrement: used,
+        },
       },
     });
   }
@@ -481,7 +360,7 @@ async function main() {
 }
 
 main()
-  .catch(async (error) => {
+  .catch(async error => {
     console.error('Seed failed:', error);
     process.exitCode = 1;
   })

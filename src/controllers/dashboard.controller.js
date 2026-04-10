@@ -1,10 +1,12 @@
 import { DashboardService } from '../services/dashboard.service.js';
+import { NotificationService } from '../services/notification.service.js';
 
 /* =====================================================
    GET DASHBOARD OVERVIEW
 ===================================================== */
 export const getDashboardOverview = async (req, res) => {
   try {
+    await NotificationService.syncUpcomingScheduleReminders();
     const data = await DashboardService.getOverview();
 
     return res.status(200).json({

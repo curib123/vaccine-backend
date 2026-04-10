@@ -146,13 +146,18 @@ export const getRecordsByChildId = async (req, res) => {
   try {
     const childId = parseId(req.params.childId, 'Child ID');
 
-    const result = await RecordsService.getRecordsByChildId({ childId });
+    const result = await RecordsService.getRecordsByChildId({
+      childId,
+      status: req.query.status,
+    });
 
     return res.status(200).json({
       success: true,
       message: 'Child immunization records retrieved successfully',
+      child: result.child,
       data: result.data,
       summary: result.summary,
+      cardRows: result.cardRows,
     });
   } catch (error) {
     console.error('❌ GET RECORDS BY CHILD ERROR:', error);

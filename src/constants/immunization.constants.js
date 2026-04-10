@@ -1,7 +1,3 @@
-/* =====================================================
-   IMMUNIZATION CONSTANTS
-===================================================== */
-
 export const IMMUNIZATION_STATUS = Object.freeze({
   PENDING: 'PENDING',
   COMPLETED: 'COMPLETED',
@@ -13,4 +9,20 @@ export const SORT_FIELDS = Object.freeze({
   NEXT_DUE_DATE: 'nextDueDate',
   CREATED_AT: 'createdAt',
   STATUS: 'status',
+  DISPLAY_ORDER: 'displayOrder',
+});
+
+export const NOTIFICATION_TYPES = Object.freeze({
+  SCHEDULE_CREATED: 'SCHEDULE_CREATED',
+  UPCOMING_SCHEDULE: 'UPCOMING_SCHEDULE',
+  STATUS_UPDATED: 'STATUS_UPDATED',
+  LOW_STOCK: 'LOW_STOCK',
+  STOCK_UPDATED: 'STOCK_UPDATED',
+  CHILD_REGISTERED: 'CHILD_REGISTERED',
+});
+
+export const EMAIL_DELIVERY_STATUS = Object.freeze({
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED',
 });

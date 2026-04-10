@@ -2,7 +2,7 @@ import { prisma } from '../config/db.js';
 
 // role name from env (with fallback)
 const PARENT_ROLE_NAME =
-  process.env.PARENT_ROLE_NAME || 'Parent/Guardian';
+  process.env.PARENT_ROLE_NAME?.trim().toUpperCase() || 'PARENT/GUARDIAN';
 
 export const ParentService = {
 
@@ -84,8 +84,8 @@ export const ParentService = {
       limit = 10,
       search = '',
       gender,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      sortBy = 'ranking',
+      sortOrder = 'asc',
     } = {}
   ) {
     if (!parentId) {
@@ -122,9 +122,15 @@ export const ParentService = {
       }),
     };
 
-    const orderBy = {
-      [sortBy]: sortOrder === 'asc' ? 'asc' : 'desc',
-    };
+    const orderBy =
+      sortBy === 'ranking'
+        ? [
+            { ranking: sortOrder === 'desc' ? 'desc' : 'asc' },
+            { createdAt: 'asc' },
+          ]
+        : {
+            [sortBy]: sortOrder === 'asc' ? 'asc' : 'desc',
+          };
 
     const [data, total] = await Promise.all([
       prisma.child.findMany({
@@ -134,13 +140,23 @@ export const ParentService = {
         orderBy,
         select: {
           id: true,
+          ranking: true,
           firstName: true,
           middleName: true,
           lastName: true,
           gender: true,
           birthDate: true,
           birthPlace: true,
+          barangay: true,
+          familyNumber: true,
           createdAt: true,
+          summary: {
+            select: {
+              completionRate: true,
+              totalCompleted: true,
+              totalRequired: true,
+            },
+          },
         },
       }),
       prisma.child.count({ where }),

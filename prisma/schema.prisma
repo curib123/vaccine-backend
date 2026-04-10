@@ -11,12 +11,12 @@ datasource db {
    USERS
 ========================= */
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  password String
 
-  roleId    Int
-  role      Role     @relation(fields: [roleId], references: [id])
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
 
   firstName  String
   middleName String?
@@ -24,7 +24,7 @@ model User {
   contactNo  String?
   address    String?
 
-  isActive   Boolean  @default(true)
+  isActive Boolean @default(true)
 
   /* ---------- RELATIONS ---------- */
   children Child[]
@@ -35,12 +35,15 @@ model User {
   updatedImmunizations ImmunizationRecord[] @relation("updatedBy")
   deletedImmunizations ImmunizationRecord[] @relation("deletedBy")
 
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
   /* ---------- SOFT DELETE ---------- */
-  isDeleted   Boolean  @default(false)
-  deletedAt   DateTime?
-  deletedById Int?
-  deletedBy   User?    @relation("UserDeletedBy", fields: [deletedById], references: [id])
-  deletedUsers User[]  @relation("UserDeletedBy")
+  isDeleted    Boolean   @default(false)
+  deletedAt    DateTime?
+  deletedById  Int?
+  deletedBy    User?     @relation("UserDeletedBy", fields: [deletedById], references: [id])
+  deletedUsers User[]    @relation("UserDeletedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -50,8 +53,8 @@ model User {
    ROLES
 ========================= */
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int    @id @default(autoincrement())
+  name        String @unique
   description String?
 
   permissions RolePermission[]
@@ -99,21 +102,31 @@ model UserPermission {
    CHILD
 ========================= */
 model Child {
-  id        Int @id @default(autoincrement())
-  parentId  Int
+  id       Int @id @default(autoincrement())
+  parentId Int
 
+  ranking     Int
   firstName  String
   middleName String?
   lastName   String
   gender     Gender
   birthDate  DateTime
   birthPlace String
+  address    String?
+
+  motherName     String?
+  fatherName     String?
+  birthHeightCm  Float?
+  birthWeightKg  Float?
+  healthCenter   String?
+  barangay       String?
+  familyNumber   String?
 
   parent User @relation(fields: [parentId], references: [id])
 
   immunizations ImmunizationRecord[]
-  visits        ImmunizationVisit[]
   summary       ImmunizationSummary?
+  notifications Notification[]
 
   isDeleted Boolean  @default(false)
   deletedAt DateTime?
@@ -126,14 +139,21 @@ model Child {
    VACCINES
 ========================= */
 model Vaccine {
-  id             Int @id @default(autoincrement())
-  name           String
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  name String
+
   description    String?
   recommendedAge String
 
-  totalDoses          Int?
-  requiresBooster     Boolean @default(false)
-  boosterAfterMonths  Int?
+  totalDoses         Int?
+  requiresBooster    Boolean @default(false)
+  boosterAfterMonths Int?
+
+  stockQuantity Int    @default(0)
+  reorderLevel  Int    @default(10)
+  displayOrder  Int    @default(0)
+  unit          String @default("dose")
 
   immunizations ImmunizationRecord[]
   schedules     ImmunizationSchedule[]
@@ -142,41 +162,26 @@ model Vaccine {
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /* =========================
    IMMUNIZATION SCHEDULE
-   (AUTO-GENERATOR SOURCE)
 ========================= */
 model ImmunizationSchedule {
-  id        Int @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   vaccineId Int
-  doseLabel String
-  doseNumber Int
-  recommendedAgeInMonths Int
-  intervalDays Int?
+
+  doseLabel            String
+  doseNumber           Int
+  recommendedAgeLabel  String
+  dueDaysFromBirth     Int
+  intervalDays         Int?
 
   vaccine Vaccine @relation(fields: [vaccineId], references: [id])
 
   isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-}
-
-/* =========================
-   IMMUNIZATION VISIT
-========================= */
-model ImmunizationVisit {
-  id        Int @id @default(autoincrement())
-  childId   Int
-  visitDate DateTime
-  location  String?
-  nurseName String?
-
-  records ImmunizationRecord[]
-
-  child Child @relation(fields: [childId], references: [id])
 
   createdAt DateTime @default(now())
 }
@@ -188,23 +193,26 @@ model ImmunizationRecord {
   id        Int @id @default(autoincrement())
   childId   Int
   vaccineId Int
-  visitId   Int?
 
-  dose        String
-  doseNumber Int?
-  dateGiven  DateTime?
-  nextDueDate DateTime?
+  dose          String
+  doseNumber    Int?
+  scheduleLabel String?
+  dateGiven     DateTime?
+  nextDueDate   DateTime?
 
   status ImmunizationStatus @default(PENDING)
 
   administeredBy String?
   administeredAt String?
-  batchNumber String?
-  manufacturer String?
-  remarks String?
+  batchNumber    String?
+  manufacturer   String?
+  remarks        String?
 
   isMissed Boolean @default(false)
   isLate   Boolean @default(false)
+
+  reminderSentAt           DateTime?
+  statusNotificationSentAt DateTime?
 
   /* ---------- AUDIT ---------- */
   createdById Int
@@ -215,9 +223,9 @@ model ImmunizationRecord {
   updatedBy User? @relation("updatedBy", fields: [updatedById], references: [id])
   deletedBy User? @relation("deletedBy", fields: [deletedById], references: [id])
 
-  child   Child   @relation(fields: [childId], references: [id])
-  vaccine Vaccine @relation(fields: [vaccineId], references: [id])
-  visit   ImmunizationVisit? @relation(fields: [visitId], references: [id])
+  child         Child               @relation(fields: [childId], references: [id])
+  vaccine       Vaccine             @relation(fields: [vaccineId], references: [id])
+  notifications Notification[]
 
   isDeleted Boolean  @default(false)
   deletedAt DateTime?
@@ -230,8 +238,8 @@ model ImmunizationRecord {
    IMMUNIZATION SUMMARY
 ========================= */
 model ImmunizationSummary {
-  id        Int @id @default(autoincrement())
-  childId   Int @unique
+  id      Int @id @default(autoincrement())
+  childId Int @unique
 
   totalRequired  Int
   totalCompleted Int
@@ -244,10 +252,51 @@ model ImmunizationSummary {
 }
 
 /* =========================
+   NOTIFICATIONS
+========================= */
+model Notification {
+  id       Int              @id @default(autoincrement())
+  userId   Int
+  childId  Int?
+  recordId Int?
+
+  title   String
+  message String
+  type    NotificationType
+
+  emailStatus EmailDeliveryStatus @default(PENDING)
+  emailedAt   DateTime?
+  readAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  user   User                @relation(fields: [userId], references: [id])
+  child  Child?              @relation(fields: [childId], references: [id])
+  record ImmunizationRecord? @relation(fields: [recordId], references: [id])
+}
+
+/* =========================
+   AUDIT LOGS
+========================= */
+model AuditLog {
+  id          Int    @id @default(autoincrement())
+  userId      Int?
+  action      String
+  entityType  String
+  entityId    Int?
+  description String
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+/* =========================
    ANNOUNCEMENTS
 ========================= */
 model Announcement {
-  id       Int @id @default(autoincrement())
+  id       Int    @id @default(autoincrement())
   title    String
   message  String
   isActive Boolean @default(true)
@@ -261,7 +310,6 @@ model Announcement {
 /* =========================
    ENUMS
 ========================= */
-
 enum Gender {
   MALE
   FEMALE
@@ -278,7 +326,6 @@ enum PermissionCode {
   VIEW_DASHBOARD
   VIEW_ANNOUNCEMENT
 
-
   MANAGE_CHILDREN
   MANAGE_PARENTS
 
@@ -289,4 +336,19 @@ enum PermissionCode {
   MANAGE_ROLES
 
   MANAGE_ADMINISTRATION
+}
+
+enum NotificationType {
+  SCHEDULE_CREATED
+  UPCOMING_SCHEDULE
+  STATUS_UPDATED
+  LOW_STOCK
+  STOCK_UPDATED
+  CHILD_REGISTERED
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
 }

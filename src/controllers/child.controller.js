@@ -64,7 +64,8 @@ export const updateChildById = async (req, res) => {
 
     const child = await ChildService.updateChildById(
       Number(id),
-      req.body
+      req.body,
+      req.user?.id
     );
 
     return res.status(200).json({
@@ -89,7 +90,10 @@ export const toggleChildIsDeleted = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const child = await ChildService.toggleChildIsDeleted(Number(id));
+    const child = await ChildService.toggleChildIsDeleted(
+      Number(id),
+      req.user?.id
+    );
 
     return res.status(200).json({
       success: true,

@@ -1,9 +1,11 @@
 import { ParentDashboardService } from '../services/parentDashboard.service.js';
+import { NotificationService } from '../services/notification.service.js';
 
 export const ParentDashboardController = {
   async getDashboard(req, res) {
     try {
       const parentId = req.user.id;
+      await NotificationService.syncUpcomingScheduleReminders();
 
       const data =
         await ParentDashboardService.getDashboard(parentId);

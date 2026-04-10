@@ -11,6 +11,7 @@ import {
   connectDB,
   disconnectDB,
 } from './config/db.js';
+import { VaccineService } from './services/vaccine.service.js';
 
 dotenv.config();// ✅ load env FIRST
 
@@ -24,6 +25,7 @@ let server;
 const startServer = async () => {
   try {
     await connectDB();
+    await VaccineService.syncCatalog();
 
     server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

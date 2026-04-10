@@ -5,7 +5,7 @@ import { VaccineService } from '../services/vaccine.service.js';
 ===================================================== */
 export const createVaccine = async (req, res) => {
   try {
-    const vaccine = await VaccineService.createVaccine(req.body);
+    const vaccine = await VaccineService.createVaccine(req.body, req.user?.id);
 
     return res.status(201).json({
       success: true,
@@ -31,7 +31,8 @@ export const updateVaccineById = async (req, res) => {
 
     const vaccine = await VaccineService.updateVaccineById(
       Number(id),
-      req.body
+      req.body,
+      req.user?.id
     );
 
     return res.status(200).json({

@@ -1,0 +1,180 @@
+export const UPCOMING_REMINDER_WINDOW_DAYS = 7;
+
+export const VACCINE_CATALOG = [
+  {
+    code: 'BCG',
+    name: 'BCG Vaccine',
+    description: 'Protection against severe tuberculosis infection at birth.',
+    recommendedAge: 'At birth',
+    totalDoses: 1,
+    displayOrder: 1,
+    reorderLevel: 15,
+    stockQuantity: 50,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: 'At birth',
+        dueDaysFromBirth: 0,
+      },
+    ],
+  },
+  {
+    code: 'HEPATITIS_B',
+    name: 'Hepatitis B Vaccine',
+    description: 'Birth dose for hepatitis B protection.',
+    recommendedAge: 'At birth',
+    totalDoses: 1,
+    displayOrder: 2,
+    reorderLevel: 15,
+    stockQuantity: 50,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: 'At birth',
+        dueDaysFromBirth: 0,
+      },
+    ],
+  },
+  {
+    code: 'PENTAVALENT',
+    name: 'Pentavalent Vaccine (DPT-Hep B-Hib)',
+    description: 'Combined vaccine for DPT, Hepatitis B, and Hib.',
+    recommendedAge: '1 1/2, 2 1/2, 3 1/2 months',
+    totalDoses: 3,
+    displayOrder: 3,
+    reorderLevel: 20,
+    stockQuantity: 80,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: '1 1/2 months',
+        dueDaysFromBirth: 45,
+      },
+      {
+        doseLabel: 'Dose 2',
+        doseNumber: 2,
+        recommendedAgeLabel: '2 1/2 months',
+        dueDaysFromBirth: 75,
+      },
+      {
+        doseLabel: 'Dose 3',
+        doseNumber: 3,
+        recommendedAgeLabel: '3 1/2 months',
+        dueDaysFromBirth: 105,
+      },
+    ],
+  },
+  {
+    code: 'OPV',
+    name: 'Oral Polio Vaccine (OPV)',
+    description: 'Oral polio series for early infancy.',
+    recommendedAge: '1 1/2, 2 1/2, 3 1/2 months',
+    totalDoses: 3,
+    displayOrder: 4,
+    reorderLevel: 20,
+    stockQuantity: 80,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: '1 1/2 months',
+        dueDaysFromBirth: 45,
+      },
+      {
+        doseLabel: 'Dose 2',
+        doseNumber: 2,
+        recommendedAgeLabel: '2 1/2 months',
+        dueDaysFromBirth: 75,
+      },
+      {
+        doseLabel: 'Dose 3',
+        doseNumber: 3,
+        recommendedAgeLabel: '3 1/2 months',
+        dueDaysFromBirth: 105,
+      },
+    ],
+  },
+  {
+    code: 'IPV',
+    name: 'Inactivated Polio Vaccine (IPV)',
+    description: 'Inactivated polio doses at 3 1/2 and 9 months.',
+    recommendedAge: '3 1/2 months and 9 months',
+    totalDoses: 2,
+    displayOrder: 5,
+    reorderLevel: 15,
+    stockQuantity: 60,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: '3 1/2 months',
+        dueDaysFromBirth: 105,
+      },
+      {
+        doseLabel: 'Dose 2',
+        doseNumber: 2,
+        recommendedAgeLabel: '9 months',
+        dueDaysFromBirth: 270,
+      },
+    ],
+  },
+  {
+    code: 'PCV',
+    name: 'Pneumococcal Conjugate Vaccine (PCV)',
+    description: 'Pneumococcal series for early infancy.',
+    recommendedAge: '1 1/2, 2 1/2, 3 1/2 months',
+    totalDoses: 3,
+    displayOrder: 6,
+    reorderLevel: 20,
+    stockQuantity: 80,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: '1 1/2 months',
+        dueDaysFromBirth: 45,
+      },
+      {
+        doseLabel: 'Dose 2',
+        doseNumber: 2,
+        recommendedAgeLabel: '2 1/2 months',
+        dueDaysFromBirth: 75,
+      },
+      {
+        doseLabel: 'Dose 3',
+        doseNumber: 3,
+        recommendedAgeLabel: '3 1/2 months',
+        dueDaysFromBirth: 105,
+      },
+    ],
+  },
+  {
+    code: 'MMR',
+    name: 'Measles, Mumps, Rubella Vaccine (MMR)',
+    description: 'MMR doses at 9 months and 1 year.',
+    recommendedAge: '9 months and 1 year',
+    totalDoses: 2,
+    displayOrder: 7,
+    reorderLevel: 15,
+    stockQuantity: 60,
+    schedules: [
+      {
+        doseLabel: 'Dose 1',
+        doseNumber: 1,
+        recommendedAgeLabel: '9 months',
+        dueDaysFromBirth: 270,
+      },
+      {
+        doseLabel: 'Dose 2',
+        doseNumber: 2,
+        recommendedAgeLabel: '1 year',
+        dueDaysFromBirth: 365,
+      },
+    ],
+  },
+];
+
+export const VACCINE_CODE_ORDER = VACCINE_CATALOG.map(vaccine => vaccine.code);

@@ -33,13 +33,21 @@ export const DashboardService = {
   async getOverview() {
     const today = new Date();
     const weekAhead = addDays(today, 7);
+    const monthStart = startOfMonth();
 
     const [
       totalChildren,
       newChildrenThisMonth,
       genderStats,
 
+      totalUsers,
+      activeUsers,
+      parentUsers,
+      staffUsers,
+
       totalVaccines,
+      vaccineInventory,
+      totalStockAggregate,
 
       recordCounts,
       overdueCount,
@@ -49,6 +57,8 @@ export const DashboardService = {
 
       completionSummary,
       topPendingVaccines,
+      topCompletedVaccines,
+      recentChildren,
     ] = await Promise.all([
 
       /* ---------- CHILDREN ---------- */
@@ -69,9 +79,64 @@ export const DashboardService = {
         _count: true,
       }),
 
+      /* ---------- USERS ---------- */
+      prisma.user.count({
+        where: { isDeleted: false },
+      }),
+
+      prisma.user.count({
+        where: {
+          isDeleted: false,
+          isActive: true,
+        },
+      }),
+
+      prisma.user.count({
+        where: {
+          isDeleted: false,
+          role: {
+            name: {
+              contains: 'PARENT',
+              mode: 'insensitive',
+            },
+          },
+        },
+      }),
+
+      prisma.user.count({
+        where: {
+          isDeleted: false,
+          role: {
+            name: {
+              in: ['ADMIN', 'NURSE'],
+            },
+          },
+        },
+      }),
+
       /* ---------- VACCINES ---------- */
       prisma.vaccine.count({
         where: { isDeleted: false },
+      }),
+
+      prisma.vaccine.findMany({
+        where: {
+          isDeleted: false,
+        },
+        orderBy: [{ stockQuantity: 'asc' }, { name: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          stockQuantity: true,
+          reorderLevel: true,
+          unit: true,
+        },
+      }),
+
+      prisma.vaccine.aggregate({
+        _sum: {
+          stockQuantity: true,
+        },
       }),
 
       /* ---------- RECORD COUNTS ---------- */
@@ -143,6 +208,41 @@ export const DashboardService = {
         },
         take: 5,
       }),
+
+      prisma.immunizationRecord.groupBy({
+        by: ['vaccineId'],
+        where: {
+          isDeleted: false,
+          status: 'COMPLETED',
+        },
+        _count: true,
+        orderBy: {
+          _count: {
+            vaccineId: 'desc',
+          },
+        },
+        take: 5,
+      }),
+
+      prisma.child.findMany({
+        where: { isDeleted: false },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          gender: true,
+          ranking: true,
+          createdAt: true,
+          parent: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
     ]);
 
     /* ---------- MAP DATA ---------- */
@@ -156,6 +256,27 @@ export const DashboardService = {
       return acc;
     }, {});
 
+    const pendingIds = topPendingVaccines.map(item => item.vaccineId);
+    const completedIds = topCompletedVaccines.map(item => item.vaccineId);
+    const lowStockVaccines = vaccineInventory
+      .filter(vaccine => vaccine.stockQuantity <= vaccine.reorderLevel)
+      .slice(0, 5);
+    const vaccineNames = await prisma.vaccine.findMany({
+      where: {
+        id: {
+          in: [...new Set([...pendingIds, ...completedIds])],
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    const vaccineNameMap = Object.fromEntries(
+      vaccineNames.map(vaccine => [vaccine.id, vaccine.name])
+    );
+
     return {
       children: {
         total: totalChildren,
@@ -166,8 +287,18 @@ export const DashboardService = {
         },
       },
 
+      users: {
+        total: totalUsers,
+        active: activeUsers,
+        parents: parentUsers,
+        staff: staffUsers,
+      },
+
       vaccines: {
         total: totalVaccines,
+        lowStockCount: lowStockVaccines.length,
+        totalStock: totalStockAggregate._sum.stockQuantity || 0,
+        lowStockItems: lowStockVaccines,
       },
 
       immunization: {
@@ -190,7 +321,26 @@ export const DashboardService = {
         thisMonth: dueThisMonth,
       },
 
-      topPendingVaccines,
+      topPendingVaccines: topPendingVaccines.map(item => ({
+        vaccineId: item.vaccineId,
+        name: vaccineNameMap[item.vaccineId] || 'Unknown vaccine',
+        pendingCount: item._count.vaccineId,
+      })),
+
+      topCompletedVaccines: topCompletedVaccines.map(item => ({
+        vaccineId: item.vaccineId,
+        name: vaccineNameMap[item.vaccineId] || 'Unknown vaccine',
+        completedCount: item._count.vaccineId,
+      })),
+
+      recentChildren: recentChildren.map(child => ({
+        id: child.id,
+        fullName: `${child.firstName} ${child.lastName}`,
+        gender: child.gender,
+        ranking: child.ranking,
+        createdAt: child.createdAt,
+        parentName: `${child.parent.firstName} ${child.parent.lastName}`,
+      })),
     };
   },
 
@@ -200,15 +350,19 @@ export const DashboardService = {
   async getMonthlyTrend(year = new Date().getFullYear()) {
     const records = await prisma.$queryRaw`
       SELECT 
-        MONTH(createdAt) as month,
+        DATE_PART('month', "createdAt") as month,
         COUNT(*) as total,
-        SUM(status = 'COMPLETED') as completed
-      FROM immunizationrecord
-      WHERE YEAR(createdAt) = ${year}
-      GROUP BY MONTH(createdAt)
-      ORDER BY MONTH(createdAt)
+        SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
+      FROM "ImmunizationRecord"
+      WHERE DATE_PART('year', "createdAt") = ${year}
+      GROUP BY DATE_PART('month', "createdAt")
+      ORDER BY DATE_PART('month', "createdAt")
     `;
 
-    return records;
+    return records.map(record => ({
+      month: Number(record.month),
+      total: Number(record.total),
+      completed: Number(record.completed),
+    }));
   },
 };
