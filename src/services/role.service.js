@@ -26,11 +26,16 @@ export const getAllPermissions = async () => {
   });
 };
 
+const normalizeDescription = (value) => {
+  const text = String(value || '').trim();
+  return text ? text : null;
+};
+
 /* =========================
    CREATE ROLE
    - If permissionIds EMPTY → assign ALL
 ========================= */
-export const createRole = async ({ name, permissionIds = [] }) => {
+export const createRole = async ({ name, description, permissionIds = [] }) => {
   if (!name || !name.trim()) {
     throw new Error('Role name is required');
   }
@@ -84,7 +89,10 @@ export const createRole = async ({ name, permissionIds = [] }) => {
 
     /* ➕ CREATE ROLE */
     const role = await tx.role.create({
-      data: { name: normalizedName },
+      data: {
+        name: normalizedName,
+        description: normalizeDescription(description),
+      },
     });
 
     /* 🔗 ATTACH PERMISSIONS */
@@ -143,7 +151,7 @@ export const getRoleById = async (roleId) => {
 /* =========================
    UPDATE ROLE NAME
 ========================= */
-export const updateRole = async (roleId, { name }) => {
+export const updateRole = async (roleId, { name, description }) => {
   if (!name || !name.trim()) {
     throw new Error('Role name is required');
   }
@@ -165,7 +173,10 @@ export const updateRole = async (roleId, { name }) => {
 
   return prisma.role.update({
     where: { id: Number(roleId) },
-    data: { name: normalizedName },
+    data: {
+      name: normalizedName,
+      description: normalizeDescription(description),
+    },
   });
 };
 

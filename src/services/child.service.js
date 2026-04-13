@@ -85,6 +85,25 @@ const buildChildData = (payload, fallbackAddress) => ({
   familyNumber: nullable(payload.familyNumber),
 });
 
+const CHILD_SORT_FIELDS = new Set(['createdAt', 'birthDate', 'firstName', 'lastName', 'ranking']);
+
+const resolveChildOrderBy = (sortBy = 'createdAt', sortOrder = 'desc') => {
+  const field = CHILD_SORT_FIELDS.has(sortBy) ? sortBy : 'createdAt';
+  const direction = String(sortOrder).toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+  if (field === 'firstName' || field === 'lastName') {
+    return [
+      { [field]: direction },
+      { createdAt: 'desc' },
+    ];
+  }
+
+  return [
+    { [field]: direction },
+    { createdAt: 'desc' },
+  ];
+};
+
 export const ChildService = {
   async createChild(payload, createdById) {
     const { parentId } = payload;
@@ -242,7 +261,15 @@ export const ChildService = {
     });
   },
 
-  async getAllChildren({ page = 1, limit = 10, search, parentId }) {
+  async getAllChildren({
+    page = 1,
+    limit = 10,
+    search,
+    parentId,
+    gender,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+  }) {
     page = Number(page);
     limit = Number(limit);
     const skip = (page - 1) * limit;
@@ -250,6 +277,9 @@ export const ChildService = {
     const where = { isDeleted: false };
 
     if (parentId) where.parentId = Number(parentId);
+    if (gender && ['MALE', 'FEMALE'].includes(String(gender).toUpperCase())) {
+      where.gender = String(gender).toUpperCase();
+    }
 
     if (search) {
       where.OR = [
@@ -274,10 +304,7 @@ export const ChildService = {
         where,
         skip,
         take: limit,
-        orderBy: [
-          { ranking: 'asc' },
-          { createdAt: 'asc' },
-        ],
+        orderBy: resolveChildOrderBy(sortBy, sortOrder),
         select: {
           id: true,
           ranking: true,

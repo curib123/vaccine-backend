@@ -30,7 +30,7 @@ export const createRole = async (req, res) => {
     console.error('❌ Create Role Error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create role',
+      message: error.message || 'Failed to create role',
     });
   }
 };
@@ -105,7 +105,7 @@ export const updateRole = async (req, res) => {
     console.error('❌ Update Role Error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update role',
+      message: error.message || 'Failed to update role',
     });
   }
 };
@@ -129,7 +129,7 @@ export const updateRolePermissions = async (req, res) => {
     console.error('❌ Update Role Permissions Error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update role permissions',
+      message: error.message || 'Failed to update role permissions',
     });
   }
 };
