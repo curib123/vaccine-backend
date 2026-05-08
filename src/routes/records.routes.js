@@ -3,6 +3,7 @@ import express from 'express';
 import {
   generateRecordsByVaccines,
   getAllRecords,
+  getVaccinationReport,
   getAllStatus,
   getRecordsByChildId,
   recomputeSummary,
@@ -48,6 +49,17 @@ router.get(
   '/statuses',
   verifyToken,
   getAllStatus
+);
+
+/**
+ * GET /api/records/reports/vaccination
+ * - Child vaccination report categories
+ * - Completed vaccinations this week/month/year
+ */
+router.get(
+  '/reports/vaccination',
+  verifyToken,
+  getVaccinationReport
 );
 
 /**

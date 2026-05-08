@@ -169,3 +169,22 @@ export const getRecordsByChildId = async (req, res) => {
   }
 };
 
+export const getVaccinationReport = async (req, res) => {
+  try {
+    const report = await RecordsService.getVaccinationReport(req.query);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Vaccination report retrieved successfully',
+      data: report,
+    });
+  } catch (error) {
+    console.error('❌ GET VACCINATION REPORT ERROR:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retrieve vaccination report',
+    });
+  }
+};
+

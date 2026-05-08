@@ -13,6 +13,46 @@ const addDays = (date, days) => {
   return next;
 };
 
+const startOfDay = value => {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const endOfDay = value => {
+  const date = new Date(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
+};
+
+const startOfWeek = value => {
+  const date = startOfDay(value);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date;
+};
+
+const endOfWeek = value => {
+  const date = startOfWeek(value);
+  date.setDate(date.getDate() + 6);
+  return endOfDay(date);
+};
+
+const startOfMonth = value => {
+  const date = new Date(value);
+  date.setDate(1);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const startOfYear = value => {
+  const date = new Date(value);
+  date.setMonth(0, 1);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
 const allowedSortFields = new Set([
   SORT_FIELDS.NEXT_DUE_DATE,
   SORT_FIELDS.CREATED_AT,
@@ -92,6 +132,52 @@ const buildCardRows = records => {
       doses: row.doses.sort((a, b) => (a.doseNumber || 0) - (b.doseNumber || 0)),
     }));
 };
+
+const buildFullName = ({ firstName, middleName, lastName }) =>
+  [firstName, middleName, lastName].filter(Boolean).join(' ');
+
+const buildChildSearchText = child =>
+  [
+    buildFullName(child),
+    child.parent ? buildFullName(child.parent) : '',
+    child.barangay || '',
+    child.healthCenter || '',
+  ]
+    .join(' ')
+    .toLowerCase();
+
+const buildChildReportRow = (child, completedRecords) => {
+  const sortedCompleted = [...completedRecords].sort(
+    (left, right) => new Date(right.dateGiven).getTime() - new Date(left.dateGiven).getTime()
+  );
+
+  return {
+    childId: child.id,
+    ranking: child.ranking,
+    childName: buildFullName(child),
+    gender: child.gender,
+    birthDate: child.birthDate,
+    barangay: child.barangay,
+    healthCenter: child.healthCenter,
+    parentName: child.parent ? buildFullName(child.parent) : null,
+    totalCompleted: child.summary?.totalCompleted ?? completedRecords.length,
+    totalRequired: child.summary?.totalRequired ?? child.immunizations.length,
+    completionRate: child.summary?.completionRate ?? 0,
+    lastVaccinatedAt: sortedCompleted[0]?.dateGiven || null,
+  };
+};
+
+const buildVaccinationEvent = record => ({
+  recordId: record.id,
+  childId: record.child.id,
+  childName: buildFullName(record.child),
+  parentName: record.child.parent ? buildFullName(record.child.parent) : null,
+  vaccineName: record.vaccine.name,
+  vaccineCode: record.vaccine.code,
+  dose: record.dose,
+  scheduleLabel: record.scheduleLabel,
+  dateGiven: record.dateGiven,
+});
 
 async function applyRecordStatus(recordId, payload, updatedByUserId) {
   const { status, dateGiven, remarks } = payload;
@@ -554,6 +640,230 @@ export const RecordsService = {
       data: records,
       summary,
       cardRows: buildCardRows(records),
+    };
+  },
+
+  async getVaccinationReport({ search } = {}) {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const query = String(search || '').trim().toLowerCase();
+
+    const children = await prisma.child.findMany({
+      where: { isDeleted: false },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        ranking: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        gender: true,
+        birthDate: true,
+        barangay: true,
+        healthCenter: true,
+        parent: {
+          select: {
+            firstName: true,
+            middleName: true,
+            lastName: true,
+          },
+        },
+        summary: {
+          select: {
+            totalCompleted: true,
+            totalRequired: true,
+            completionRate: true,
+          },
+        },
+        immunizations: {
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            dose: true,
+            scheduleLabel: true,
+            status: true,
+            dateGiven: true,
+            nextDueDate: true,
+            vaccine: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: [{ nextDueDate: 'asc' }, { doseNumber: 'asc' }],
+        },
+      },
+    });
+
+    const filteredChildren = query
+      ? children.filter(child => buildChildSearchText(child).includes(query))
+      : children;
+
+    const vaccinatedChildren = [];
+    const futureVaccinationChildren = [];
+    const notVaccinatedChildren = [];
+
+    for (const child of filteredChildren) {
+      const completedRecords = child.immunizations.filter(
+        record => record.status === IMMUNIZATION_STATUS.COMPLETED && record.dateGiven
+      );
+      const pendingFutureRecords = child.immunizations
+        .filter(
+          record =>
+            record.status === IMMUNIZATION_STATUS.PENDING &&
+            record.nextDueDate &&
+            new Date(record.nextDueDate) >= todayStart
+        )
+        .sort((left, right) => new Date(left.nextDueDate).getTime() - new Date(right.nextDueDate).getTime());
+
+      if (completedRecords.length > 0) {
+        vaccinatedChildren.push(buildChildReportRow(child, completedRecords));
+      }
+
+      if (pendingFutureRecords.length > 0) {
+        const nextRecord = pendingFutureRecords[0];
+
+        futureVaccinationChildren.push({
+          ...buildChildReportRow(child, completedRecords),
+          pendingCount: pendingFutureRecords.length,
+          nextDueDate: nextRecord.nextDueDate,
+          nextVaccineName: nextRecord.vaccine.name,
+          nextDose: nextRecord.dose,
+          nextScheduleLabel: nextRecord.scheduleLabel,
+        });
+      }
+
+      if (completedRecords.length === 0) {
+        notVaccinatedChildren.push({
+          ...buildChildReportRow(child, completedRecords),
+          pendingCount: child.immunizations.filter(
+            record => record.status === IMMUNIZATION_STATUS.PENDING
+          ).length,
+        });
+      }
+    }
+
+    const completedVaccinations = await prisma.immunizationRecord.findMany({
+      where: {
+        isDeleted: false,
+        status: IMMUNIZATION_STATUS.COMPLETED,
+        dateGiven: {
+          gte: startOfYear(now),
+          lte: endOfDay(now),
+        },
+        child: {
+          isDeleted: false,
+          ...(query
+            ? {
+                OR: [
+                  { firstName: { contains: query, mode: 'insensitive' } },
+                  { middleName: { contains: query, mode: 'insensitive' } },
+                  { lastName: { contains: query, mode: 'insensitive' } },
+                  {
+                    parent: {
+                      OR: [
+                        { firstName: { contains: query, mode: 'insensitive' } },
+                        { middleName: { contains: query, mode: 'insensitive' } },
+                        { lastName: { contains: query, mode: 'insensitive' } },
+                      ],
+                    },
+                  },
+                  { barangay: { contains: query, mode: 'insensitive' } },
+                  { healthCenter: { contains: query, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+      },
+      orderBy: [{ dateGiven: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        dose: true,
+        scheduleLabel: true,
+        dateGiven: true,
+        child: {
+          select: {
+            id: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            parent: {
+              select: {
+                firstName: true,
+                middleName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        vaccine: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    const weekStart = startOfWeek(now);
+    const monthStart = startOfMonth(now);
+    const yearStart = startOfYear(now);
+
+    const weekVaccinations = [];
+    const monthVaccinations = [];
+    const yearVaccinations = [];
+
+    for (const record of completedVaccinations) {
+      const event = buildVaccinationEvent(record);
+      const givenDate = new Date(record.dateGiven);
+
+      if (givenDate >= yearStart) {
+        yearVaccinations.push(event);
+      }
+
+      if (givenDate >= monthStart) {
+        monthVaccinations.push(event);
+      }
+
+      if (givenDate >= weekStart && givenDate <= endOfWeek(now)) {
+        weekVaccinations.push(event);
+      }
+    }
+
+    const sortByName = (left, right) => left.childName.localeCompare(right.childName);
+
+    vaccinatedChildren.sort(sortByName);
+    futureVaccinationChildren.sort((left, right) => {
+      const dateDiff = new Date(left.nextDueDate).getTime() - new Date(right.nextDueDate).getTime();
+      return dateDiff !== 0 ? dateDiff : left.childName.localeCompare(right.childName);
+    });
+    notVaccinatedChildren.sort(sortByName);
+
+    return {
+      generatedAt: now,
+      summary: {
+        vaccinatedChildren: vaccinatedChildren.length,
+        futureVaccinationChildren: futureVaccinationChildren.length,
+        notVaccinatedChildren: notVaccinatedChildren.length,
+        fullyVaccinatedChildren: vaccinatedChildren.filter(
+          child => child.totalRequired > 0 && child.totalCompleted === child.totalRequired
+        ).length,
+        vaccinationsThisWeek: weekVaccinations.length,
+        vaccinationsThisMonth: monthVaccinations.length,
+        vaccinationsThisYear: yearVaccinations.length,
+      },
+      children: {
+        vaccinated: vaccinatedChildren,
+        futureVaccination: futureVaccinationChildren,
+        notVaccinated: notVaccinatedChildren,
+      },
+      vaccinations: {
+        week: weekVaccinations,
+        month: monthVaccinations,
+        year: yearVaccinations,
+      },
     };
   },
 };
